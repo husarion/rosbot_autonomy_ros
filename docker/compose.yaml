@@ -1,0 +1,16 @@
+services:
+
+  navigation:
+    image: husarion/navigation2:humble-1.1.12-20240123
+    restart: unless-stopped
+    environment:
+      - SAVE_MAP_PERIOD=${SAVE_MAP_PERIOD}
+    volumes:
+      - ./config/nav2_${CONTROLLER:-rpp}_params.yaml:/params.yaml
+      - ./maps:/maps
+    command: >
+      ros2 launch /husarion_utils/bringup_launch.py
+        slam:=${SLAM:-True}
+        params_file:=/params.yaml
+        map:=/maps/map.yaml
+        use_sim_time:=False
