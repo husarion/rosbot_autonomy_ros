@@ -1,0 +1,30 @@
+ARG ROS_DISTRO=jazzy
+
+FROM husarnet/ros:${ROS_DISTRO}-ros-core
+
+WORKDIR /ros2_ws
+
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+
+COPY .. src/ros2_ws
+
+RUN apt-get update && apt-get install -y \
+        python3-pip \
+        ros-dev-tools && \
+    # Install dependencies
+    rosdep init && \
+    rosdep update --rosdistro $ROS_DISTRO && \
+    rosdep install --from-paths src -y -i && \
+    # Build
+    source /opt/ros/$ROS_DISTRO/setup.bash && \
+    colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release && \
+    # Get version
+    echo $(cat /ros2_ws/src/rosbot_autonomy_ros/rosbot_navigation/package.xml | grep '<version>' | sed -r 's/.*<version>([0-9]+.[0-9]+.[0-9]+)<\/version>/\1/g') >> /version.txt && \
+    # Size optimization
+    export SUDO_FORCE_REMOVE=yes && \
+    apt-get remove -y \
+        python3-pip \
+        ros-dev-tools && \
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*

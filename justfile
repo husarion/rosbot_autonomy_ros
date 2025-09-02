@@ -76,13 +76,8 @@ flash-firmware: _install-yq
     docker ps -q | xargs -r docker stop
 
     echo "Flashing the firmware for STM32 microcontroller in ROSbot"
-    # docker run \
-    #     --rm -it --privileged \
-    #     $(yq .services.rosbot.image compose.yaml) \
-    #     ros2 run rosbot_utils flash_firmware
-    docker run \
-        --rm -it --privileged \
-        husarion/rosbot:humble-0.13.1-20240201 \
+    docker run --rm -it --privileged \
+        $(yq .services.rosbot.image docker/compose.yaml) \
         ros2 run rosbot_utils flash_firmware
 
 # start ROSbot 2R / 2 PRO autonomy containers
@@ -94,23 +89,23 @@ start-rosbot:
     fi
 
     mkdir -m 775 -p maps
-    docker compose down
-    docker compose pull
-    docker compose up
+    docker compose -f docker/compose.yaml down
+    docker compose -f docker/compose.yaml pull
+    docker compose -f docker/compose.yaml up
 
 # start Gazebo simulator with autonomy
 start-simulation:
     #!/bin/bash
     xhost +local:docker
-    docker compose -f compose.simulation.yaml down
-    docker compose -f compose.simulation.yaml pull
-    docker compose -f compose.simulation.yaml up
+    docker compose -f docker/compose.sim.yaml down
+    docker compose -f docker/compose.sim.yaml pull
+    docker compose -f docker/compose.sim.yaml up 
 
 # restart the Nav2 container
 restart-navigation:
     #!/bin/bash
-    docker compose down navigation
-    docker compose up -d navigation
+    docker compose -f docker/compose.yaml down rosbot_navigation
+    docker compose -f docker/compose.yaml up -d rosbot_navigation
 
 # copy repo content to remote host with 'rsync' and watch for changes
 sync hostname="${ROBOT_NAMESPACE}" password="husarion": _install-rsync

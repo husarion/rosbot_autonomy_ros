@@ -4,14 +4,18 @@
   <name>rosbot_navigation</name>
   <version>0.1.0</version>
   <description>The package contains the nav2 package configurations for ROSbot Series</description>
-  <maintainer email="rafal.gorecki@husarion.com">aayli</maintainer>
+  <maintainer email="rafal.gorecki@husarion.com">Rafal Gorecki</maintainer>
   <license>Apache License 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <depend>nav2_msgs</depend>
+  <depend>rclcpp</depend>
+
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>nav2_bringup</exec_depend>
+  <exec_depend>nav2_common</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

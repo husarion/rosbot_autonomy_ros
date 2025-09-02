@@ -1,16 +1,20 @@
 services:
 
-  navigation:
-    image: husarion/navigation2:humble-1.1.12-20240123
-    restart: unless-stopped
+  rosbot_navigation:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    network_mode: host
+    ipc: host
     environment:
       - SAVE_MAP_PERIOD=${SAVE_MAP_PERIOD}
     volumes:
-      - ./config/nav2_${CONTROLLER:-rpp}_params.yaml:/params.yaml
+      - ../rosbot_navigation:/ros2_ws/src/rosbot_autonomy_ros/rosbot_navigation
       - ./maps:/maps
     command: >
-      ros2 launch /husarion_utils/bringup_launch.py
-        slam:=${SLAM:-True}
-        params_file:=/params.yaml
+      ros2 launch rosbot_navigation bringup.launch.py
+        controller:=${CONTROLLER:-mppi}
         map:=/maps/map.yaml
+        robot_model:=${ROBOT_MODEL:-err}
+        slam:=${SLAM:-True}
         use_sim_time:=False
