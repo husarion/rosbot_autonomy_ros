@@ -99,19 +99,19 @@ controller_server:
       time_steps: 12
       model_dt: 0.2
       batch_size: 500
-      ax_max: 3.0
-      ax_min: -3.0
-      ay_max: 3.0
-      ay_min: -3.0
-      az_max: 3.5
+      ax_max: 2.0
+      ax_min: -1.5
+      ay_max: 1.5
+      ay_min: -1.5
+      az_max: 2.5
       vx_std: 0.3
       vy_std: 0.3
       wz_std: 0.5
-      vx_max: 0.7
+      vx_max: 0.5
       vx_min: -0.35
-      vy_max: 0.6
-      vy_min: -0.3
-      wz_max: 1.9
+      vy_max: 0.4
+      vy_min: -0.4
+      wz_max: 1.5
       iteration_count: 1
       prune_distance: 1.7
       transform_tolerance: 0.1
@@ -417,10 +417,10 @@ velocity_smoother:
     smoothing_frequency: 5.0
     scale_velocities: false
     feedback: CLOSED_LOOP
-    max_velocity: [1.0, 0.0, 2.0]
-    min_velocity: [-1.0, 0.0, -2.0]
-    max_accel: [2.5, 0.0, 3.2]
-    max_decel: [-2.5, 0.0, -3.2]
+    max_velocity: [1.0, 1.0, 2.0]
+    min_velocity: [-1.0, -1.0, -2.0]
+    max_accel: [2.5, 2.5, 3.2]
+    max_decel: [-2.5, -2.5, -3.2]
     odom_topic: odometry/filtered
     odom_duration: 0.1
     deadband_velocity: [0.01, 0.01, 0.1] # Measured
