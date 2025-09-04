@@ -99,7 +99,7 @@ start-simulation:
     xhost +local:docker
     docker compose -f docker/compose.sim.yaml down
     docker compose -f docker/compose.sim.yaml pull
-    docker compose -f docker/compose.sim.yaml up 
+    docker compose -f docker/compose.sim.yaml up
 
 # restart the Nav2 container
 restart-navigation:

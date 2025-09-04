@@ -20,7 +20,7 @@ x-cpu-config:
 services:
 
   rosbot_gazebo:
-    image: husarion/rosbot-gazebo:jazzy-0.16.1-20250901
+    image: husarion/rosbot-gazebo:humble-0.15.1-20250904
     <<: [*gpu-config, *common-config]
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw

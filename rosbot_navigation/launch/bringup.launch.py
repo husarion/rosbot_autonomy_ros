@@ -27,7 +27,7 @@ from launch.substitutions import (
     PathJoinSubstitution,
     PythonExpression,
 )
-from launch_ros.actions import Node, PushROSNamespace, SetParameter, SetRemap
+from launch_ros.actions import Node, PushRosNamespace, SetParameter, SetRemap
 from launch_ros.descriptions import ParameterFile
 from launch_ros.substitutions import FindPackageShare
 from nav2_common.launch import ReplaceString, RewrittenYaml
@@ -42,7 +42,7 @@ def generate_launch_description():
     # Launch configuration variables
     controller = LaunchConfiguration("controller")
     log_level = LaunchConfiguration("log_level")
-    map = LaunchConfiguration("map")
+    map_path = LaunchConfiguration("map")
     namespace = LaunchConfiguration("namespace")
     params_file = LaunchConfiguration("params_file")
     robot_model = LaunchConfiguration("robot_model")
@@ -88,11 +88,16 @@ def generate_launch_description():
     params_file = override_params_file("rosbot")
     params_file = override_params_file("rosbot_xl")
 
+    param_substitutions = {
+        'use_sim_time': use_sim_time,
+        'yaml_filename': map_path,
+    }
+
     configured_params = ParameterFile(
         RewrittenYaml(
             source_file=params_file,
             root_key=namespace,
-            param_rewrites={},
+            param_rewrites=param_substitutions,
             convert_types=True,
         ),
         allow_substs=True,
@@ -151,7 +156,7 @@ def generate_launch_description():
     # Specify the actions
     bringup_group = GroupAction(
         [
-            PushROSNamespace(namespace=namespace),
+            PushRosNamespace(namespace=namespace),
             Node(
                 name="nav2_container",
                 package="rclcpp_components",
@@ -178,7 +183,7 @@ def generate_launch_description():
                 condition=UnlessCondition(slam),
                 launch_arguments={
                     "namespace": namespace,
-                    "map": map,
+                    "map": map_path,
                     "autostart": "True",
                     "params_file": params_file,
                     "use_composition": "True",
@@ -225,7 +230,7 @@ def generate_launch_description():
         declare_params_file_arg,
         declare_slam_arg,
         declare_use_sim_time_arg,
-        PushROSNamespace(namespace),
+        PushRosNamespace(namespace),
         SetParameter(name="use_sim_time", value=use_sim_time),
         SetRemap("/diagnostics", "diagnostics"),
         SetRemap("/tf", "tf"),

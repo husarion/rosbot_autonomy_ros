@@ -41,7 +41,7 @@ def generate_launch_description():
         "velocity_smoother",
         "bt_navigator",
         "waypoint_follower",
-        "collision_monitor",
+        # "collision_monitor",
         # 'docking_server',
     ]
 
@@ -130,18 +130,6 @@ def generate_launch_description():
                         parameters=[configured_params],
                         remappings=[("cmd_vel", "cmd_vel_nav")],
                     ),
-                    ComposableNode(
-                        package="nav2_collision_monitor",
-                        plugin="nav2_collision_monitor::CollisionMonitor",
-                        name="collision_monitor",
-                        parameters=[configured_params],
-                    ),
-                    # ComposableNode(
-                    #     package='opennav_docking',
-                    #     plugin='opennav_docking::DockingServer',
-                    #     name='docking_server',
-                    #     parameters=[configured_params],
-                    # ),
                     ComposableNode(
                         package="nav2_lifecycle_manager",
                         plugin="nav2_lifecycle_manager::LifecycleManager",
