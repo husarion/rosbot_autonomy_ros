@@ -23,22 +23,6 @@
             0
           ],
           "order": 1
-        },
-        "160e6e08-676d-470b-95d1-a3784efa5993": {
-          "visible": true,
-          "frameLocked": true,
-          "label": "URDF",
-          "instanceId": "160e6e08-676d-470b-95d1-a3784efa5993",
-          "layerId": "foxglove.Urdf",
-          "sourceType": "topic",
-          "url": "",
-          "filePath": "",
-          "parameter": "",
-          "topic": "{{env "NAMESPACE"}}/robot_description",
-          "framePrefix": "",
-          "displayMode": "auto",
-          "fallbackColor": "#ffffff",
-          "order": 2
         }
       },
       "cameraState": {
@@ -146,6 +130,12 @@
         },
         "frame:odom": {
           "visible": false
+        },
+        "frame:camera_mount_link": {
+          "visible": false
+        },
+        "frame:slamtec_rplidar_link": {
+          "visible": false
         }
       },
       "topics": {
@@ -159,11 +149,11 @@
             "#03a800de",
             "#00ff00ff"
           ],
-          "lineWidth": 0.02
+          "lineWidth": 0.06
         },
         "{{env "NAMESPACE"}}/plan_smoothed": {
           "visible": false,
-          "lineWidth": 0.02,
+          "lineWidth": 0.09,
           "gradient": [
             "#0bff00ff",
             "#24ff0080"
@@ -174,7 +164,7 @@
           "displayMode": "auto"
         },
         "{{env "NAMESPACE"}}/scan": {
-          "visible": true,
+          "visible": false,
           "colorField": "intensity",
           "colorMode": "gradient",
           "colorMap": "turbo",
@@ -192,7 +182,7 @@
         "{{env "NAMESPACE"}}/camera/color/image_raw": {
           "visible": false,
           "frameLocked": true,
-          "cameraInfoTopic": "/camera/color/camera_info",
+          "cameraInfoTopic": "{{env "NAMESPACE"}}/camera/color/camera_info",
           "distance": 1,
           "planarProjectionFactor": 0,
           "color": "#ffffff"
@@ -220,7 +210,7 @@
           "showCovariance": false
         },
         "{{env "NAMESPACE"}}/unsmoothed_plan": {
-          "visible": true,
+          "visible": false,
           "gradient": [
             "#00721abd",
             "#0f6600b3"
@@ -236,14 +226,26 @@
         },
         "{{env "NAMESPACE"}}/local_costmap/costmap": {
           "visible": true,
-          "colorMode": "costmap"
+          "colorMode": "costmap",
+          "alpha": 0.6
+        },
+        "{{env "NAMESPACE"}}/local_costmap/published_footprint": {
+          "visible": false,
+          "color": "#34ff00ff",
+          "lineWidth": 0.03
         },
         "{{env "NAMESPACE"}}/global_costmap/costmap": {
           "colorMode": "costmap",
-          "visible": true
+          "visible": true,
+          "alpha": 0.3
+        },
+        "{{env "NAMESPACE"}}/global_costmap/published_footprint": {
+          "visible": false,
+          "color": "#34ff00ff",
+          "lineWidth": 0.03
         },
         "{{env "NAMESPACE"}}/local_costmap/published_footprint": {
-          "visible": true,
+          "visible": false,
           "color": "#34ff00ff",
           "lineWidth": 0.03
         },
@@ -256,6 +258,20 @@
         "{{env "NAMESPACE"}}/move_base_simple/goal": {
           "visible": false,
           "type": "arrow"
+        },
+        "{{env "NAMESPACE"}}/scan_filtered": {
+          "visible": true,
+          "colorField": "range",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 3
+        },
+        "{{env "NAMESPACE"}}/set_pose": {
+          "visible": false
+        },
+        "{{env "NAMESPACE"}}/transformed_global_plan": {
+          "visible": false,
+          "lineWidth": 0.27
         }
       },
       "publish": {
@@ -277,27 +293,6 @@
           "visible": true
         }
       }
-    },
-    "Teleop!43h55pp": {
-      "topic": "{{env "NAMESPACE"}}/cmd_vel",
-      "publishRate": 1,
-      "upButton": {
-        "field": "linear-x",
-        "value": 0.3
-      },
-      "downButton": {
-        "field": "linear-x",
-        "value": -0.3
-      },
-      "leftButton": {
-        "field": "angular-z",
-        "value": 1
-      },
-      "rightButton": {
-        "field": "angular-z",
-        "value": -1
-      },
-      "foxglovePanelTitle": "Teleop"
     },
     "Image!3mnp456": {
       "cameraState": {
@@ -343,6 +338,23 @@
         "imageTopic": "/camera/color/image_raw",
         "calibrationTopic": "/camera/color/camera_info"
       }
+    },
+    "Joy!nlny7x": {
+      "topic": "{{env "NAMESPACE"}}/cmd_vel",
+      "frameId": "",
+      "publishRate": 5,
+      "stamped": false,
+      "advanced": false,
+      "xAxis": {
+        "field": "linear-x",
+        "initial": 0.8,
+        "limit": 1
+      },
+      "yAxis": {
+        "field": "angular-z",
+        "initial": 0.8,
+        "limit": 1
+      }
     }
   },
   "globalVariables": {},
@@ -355,7 +367,7 @@
       "first": "3D!18i6zy7",
       "second": {
         "first": "RosOut!26kdtbc",
-        "second": "Teleop!43h55pp",
+        "second": "Joy!nlny7x",
         "direction": "row",
         "splitPercentage": 70.42357165984752
       },

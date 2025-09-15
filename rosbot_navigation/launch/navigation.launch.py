@@ -16,9 +16,9 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, GroupAction, SetEnvironmentVariable
+from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import LoadComposableNodes, SetParameter
+from launch_ros.actions import LoadComposableNodes
 from launch_ros.descriptions import ComposableNode, ParameterFile
 from nav2_common.launch import RewrittenYaml
 
@@ -38,24 +38,20 @@ def generate_launch_description():
         "smoother_server",
         "planner_server",
         "behavior_server",
-        "velocity_smoother",
         "bt_navigator",
         "waypoint_follower",
-        # "collision_monitor",
-        # 'docking_server',
+        "velocity_smoother",
     ]
 
     configured_params = ParameterFile(
         RewrittenYaml(
             source_file=params_file,
             root_key=namespace,
-            param_rewrites={},
+            param_rewrites={"use_sim_time": use_sim_time, "autostart": "True"},
             convert_types=True,
         ),
         allow_substs=True,
     )
-
-    stdout_linebuf_envvar = SetEnvironmentVariable("RCUTILS_LOGGING_BUFFERED_STREAM", "1")
 
     declare_namespace_cmd = DeclareLaunchArgument(
         "namespace", default_value="", description="Top-level namespace"
@@ -79,80 +75,75 @@ def generate_launch_description():
         description="the name of container that nodes will load in if use composition",
     )
 
-    load_composable_nodes = GroupAction(
-        actions=[
-            SetParameter("use_sim_time", use_sim_time),
-            LoadComposableNodes(
-                target_container=container_name_full,
-                composable_node_descriptions=[
-                    ComposableNode(
-                        package="nav2_controller",
-                        plugin="nav2_controller::ControllerServer",
-                        name="controller_server",
-                        parameters=[configured_params],
-                        remappings=[("cmd_vel", "cmd_vel_nav")],
-                    ),
-                    ComposableNode(
-                        package="nav2_smoother",
-                        plugin="nav2_smoother::SmootherServer",
-                        name="smoother_server",
-                        parameters=[configured_params],
-                    ),
-                    ComposableNode(
-                        package="nav2_planner",
-                        plugin="nav2_planner::PlannerServer",
-                        name="planner_server",
-                        parameters=[configured_params],
-                    ),
-                    ComposableNode(
-                        package="nav2_behaviors",
-                        plugin="behavior_server::BehaviorServer",
-                        name="behavior_server",
-                        parameters=[configured_params],
-                        remappings=[("cmd_vel", "cmd_vel_nav")],
-                    ),
-                    ComposableNode(
-                        package="nav2_bt_navigator",
-                        plugin="nav2_bt_navigator::BtNavigator",
-                        name="bt_navigator",
-                        parameters=[configured_params],
-                    ),
-                    ComposableNode(
-                        package="nav2_waypoint_follower",
-                        plugin="nav2_waypoint_follower::WaypointFollower",
-                        name="waypoint_follower",
-                        parameters=[configured_params],
-                    ),
-                    ComposableNode(
-                        package="nav2_velocity_smoother",
-                        plugin="nav2_velocity_smoother::VelocitySmoother",
-                        name="velocity_smoother",
-                        parameters=[configured_params],
-                        remappings=[("cmd_vel", "cmd_vel_nav")],
-                    ),
-                    ComposableNode(
-                        package="nav2_lifecycle_manager",
-                        plugin="nav2_lifecycle_manager::LifecycleManager",
-                        name="lifecycle_manager_navigation",
-                        parameters=[{"autostart": True, "node_names": lifecycle_nodes}],
-                    ),
-                ],
+    load_composable_nodes = LoadComposableNodes(
+        target_container=container_name_full,
+        composable_node_descriptions=[
+            ComposableNode(
+                package="nav2_controller",
+                plugin="nav2_controller::ControllerServer",
+                name="controller_server",
+                parameters=[configured_params],
+                remappings=[("cmd_vel", "cmd_vel_nav")],
+            ),
+            ComposableNode(
+                package="nav2_smoother",
+                plugin="nav2_smoother::SmootherServer",
+                name="smoother_server",
+                parameters=[configured_params],
+            ),
+            ComposableNode(
+                package="nav2_planner",
+                plugin="nav2_planner::PlannerServer",
+                name="planner_server",
+                parameters=[configured_params],
+            ),
+            ComposableNode(
+                package="nav2_behaviors",
+                plugin="behavior_server::BehaviorServer",
+                name="behavior_server",
+                parameters=[configured_params],
+            ),
+            ComposableNode(
+                package="nav2_bt_navigator",
+                plugin="nav2_bt_navigator::BtNavigator",
+                name="bt_navigator",
+                parameters=[configured_params],
+            ),
+            ComposableNode(
+                package="nav2_waypoint_follower",
+                plugin="nav2_waypoint_follower::WaypointFollower",
+                name="waypoint_follower",
+                parameters=[configured_params],
+            ),
+            ComposableNode(
+                package="nav2_velocity_smoother",
+                plugin="nav2_velocity_smoother::VelocitySmoother",
+                name="velocity_smoother",
+                parameters=[configured_params],
+                remappings=[("cmd_vel", "cmd_vel_nav"), ("cmd_vel_smoothed", "cmd_vel")],
+            ),
+            ComposableNode(
+                package="nav2_lifecycle_manager",
+                plugin="nav2_lifecycle_manager::LifecycleManager",
+                name="lifecycle_manager_navigation",
+                parameters=[{"autostart": True, "node_names": lifecycle_nodes}],
             ),
         ],
     )
 
     # Create the launch description and populate
-    ld = LaunchDescription()
+    actions = [
 
     # Set environment variables
-    ld.add_action(stdout_linebuf_envvar)
+    SetEnvironmentVariable("RCUTILS_LOGGING_BUFFERED_STREAM", "1"),
 
     # Declare the launch options
-    ld.add_action(declare_namespace_cmd)
-    ld.add_action(declare_use_sim_time_cmd)
-    ld.add_action(declare_params_file_cmd)
-    ld.add_action(declare_container_name_cmd)
+    declare_namespace_cmd,
+    declare_use_sim_time_cmd,
+    declare_params_file_cmd,
+    declare_container_name_cmd,
     # Add the actions to launch all of the navigation nodes
-    ld.add_action(load_composable_nodes)
+    load_composable_nodes,
+    ]
 
-    return ld
+    return LaunchDescription(actions)

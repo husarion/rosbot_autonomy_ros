@@ -1,11 +1,7 @@
 set dotenv-load # to read ROBOT_NAMESPACE from .env file
 
 [private]
-alias husarnet := connect-husarnet
-[private]
-alias flash := flash-firmware
-[private]
-alias rosbot := start-rosbot
+alias hw := start-navigation
 [private]
 alias sim := start-simulation
 
@@ -14,13 +10,31 @@ default:
     @just --list --unsorted
 
 [private]
-pre-commit:
+check-husarion-webui:
     #!/bin/bash
-    if ! command -v pre-commit &> /dev/null; then
-        pip install pre-commit
-        pre-commit install
+    if ! command -v snap &> /dev/null; then
+        echo "Snap is not installed. Please install Snap first and try again."
+        echo "sudo apt install snapd"
+        exit 1
     fi
-    pre-commit run -a
+
+    if ! snap list husarion-webui &> /dev/null; then
+        echo "husarion-webui is not installed."
+        read -p "Do you want to install husarion-webui? (y/n): " choice
+        case "$choice" in
+            y|Y )
+                sudo snap install husarion-webui --channel=humble
+                ;;
+            n|N )
+                echo "Installation aborted."
+                exit 0
+                ;;
+            * )
+                echo "Invalid input. Please respond with 'y' or 'n'."
+                exit 1
+                ;;
+        esac
+    fi
 
 _install-rsync:
     #!/bin/bash
@@ -32,56 +46,8 @@ _install-rsync:
         sudo apt-get install -y rsync sshpass inotify-tools
     fi
 
-_install-yq:
-    #!/bin/bash
-    if ! command -v /usr/bin/yq &> /dev/null; then
-        if [ "$EUID" -ne 0 ]; then
-            echo -e "\e[1;33mPlease run as root to install dependencies\e[0m"
-            exit
-        fi
-
-        YQ_VERSION=v4.35.1
-        ARCH=$(arch)
-
-        if [ "$ARCH" = "x86_64" ]; then
-            YQ_ARCH="amd64"
-        elif [ "$ARCH" = "aarch64" ]; then
-            YQ_ARCH="arm64"
-        else
-            YQ_ARCH="$ARCH"
-        fi
-
-        curl -L https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_${YQ_ARCH} -o /usr/bin/yq
-        chmod +x /usr/bin/yq
-        echo "yq installed successfully!"
-    fi
-
-# connect to Husarnet VPN network
-connect-husarnet joincode hostname:
-    #!/bin/bash
-    if [ "$EUID" -ne 0 ]; then
-        echo "Please run as root"
-        exit
-    fi
-    if ! command -v husarnet > /dev/null; then
-        echo "Husarnet is not installed. Installing now..."
-        curl https://install.husarnet.com/install.sh | sudo bash
-    fi
-    husarnet join {{joincode}} {{hostname}}
-
-# flash the proper firmware for STM32 microcontroller in ROSbot 2R / 2 PRO
-flash-firmware: _install-yq
-    #!/bin/bash
-    echo "Stopping all running containers"
-    docker ps -q | xargs -r docker stop
-
-    echo "Flashing the firmware for STM32 microcontroller in ROSbot"
-    docker run --rm -it --privileged \
-        $(yq .services.rosbot.image docker/compose.yaml) \
-        ros2 run rosbot_utils flash_firmware
-
-# start ROSbot 2R / 2 PRO autonomy containers
-start-rosbot:
+# start ROSbot autonomy container
+start-navigation:
     #!/bin/bash
     if grep -q "Intel(R) Atom(TM) x5-Z8350" /proc/cpuinfo && [[ "${CONTROLLER}" == "mppi" ]]; then
         echo -e "\e[1;33mMPPI controller is currently not compatible with ROSbot 2 PRO. Please use DWB or RPP controller\e[0m"
@@ -101,11 +67,15 @@ start-simulation:
     docker compose -f docker/compose.sim.yaml pull
     docker compose -f docker/compose.sim.yaml up
 
-# restart the Nav2 container
-restart-navigation:
+start-visualization: check-husarion-webui
     #!/bin/bash
-    docker compose -f docker/compose.yaml down rosbot_navigation
-    docker compose -f docker/compose.yaml up -d rosbot_navigation
+    sudo cp rosbot_navigation/layout/foxglove.json /var/snap/husarion-webui/common/foxglove-rosbot-navigation.json
+    sudo snap set husarion-webui webui.layout=rosbot-navigation
+    sudo husarion-webui.start
+
+    local_ip=$(hostname -I | awk '{print $1}')
+    hostname=$(hostname)
+    echo "Open a web browser and go to http://$local_ip:8080/ui or http://$hostname:8080/ui if your device is connected to the same Husarnet network."
 
 # copy repo content to remote host with 'rsync' and watch for changes
 sync hostname="${ROBOT_NAMESPACE}" password="husarion": _install-rsync

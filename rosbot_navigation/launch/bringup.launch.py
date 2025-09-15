@@ -89,8 +89,8 @@ def generate_launch_description():
     params_file = override_params_file("rosbot_xl")
 
     param_substitutions = {
-        'use_sim_time': use_sim_time,
-        'yaml_filename': map_path,
+        "use_sim_time": use_sim_time,
+        "yaml_filename": map_path,
     }
 
     configured_params = ParameterFile(
@@ -102,8 +102,6 @@ def generate_launch_description():
         ),
         allow_substs=True,
     )
-
-    stdout_linebuf_envvar = SetEnvironmentVariable("RCUTILS_LOGGING_BUFFERED_STREAM", "1")
 
     declare_controller_arg = DeclareLaunchArgument(
         "controller",
@@ -126,14 +124,14 @@ def generate_launch_description():
     declare_namespace_arg = DeclareLaunchArgument(
         "namespace",
         default_value=EnvironmentVariable("ROBOT_NAMESPACE", default_value=""),
-        description="Add namespace to all launched nodes.",
+        description="Add namespace to all launched nodes",
     )
 
     params_filename = PythonExpression(["'nav2_' + '", controller, "' + '_params.yaml'"])
     declare_params_file_arg = DeclareLaunchArgument(
         "params_file",
         default_value=PathJoinSubstitution([rosbot_navigation, "config", params_filename]),
-        description="Full path to the ROS2 parameters file to use for all launched nodes",
+        description="Path to the nav2 parameters file",
     )
 
     declare_robot_model_arg = DeclareLaunchArgument(
@@ -156,7 +154,6 @@ def generate_launch_description():
     # Specify the actions
     bringup_group = GroupAction(
         [
-            PushRosNamespace(namespace=namespace),
             Node(
                 name="nav2_container",
                 package="rclcpp_components",
@@ -167,12 +164,11 @@ def generate_launch_description():
             ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
-                    PathJoinSubstitution([launch_dir, "slam_launch.py"])
+                    PathJoinSubstitution([rosbot_navigation, "launch", "slam.launch.py"])
                 ),
                 condition=IfCondition(slam),
                 launch_arguments={
                     "namespace": namespace,
-                    "autostart": "True",
                     "params_file": params_file,
                 }.items(),
             ),
@@ -182,12 +178,11 @@ def generate_launch_description():
                 ),
                 condition=UnlessCondition(slam),
                 launch_arguments={
-                    "namespace": namespace,
+                    "container_name": "nav2_container",
                     "map": map_path,
-                    "autostart": "True",
+                    "namespace": namespace,
                     "params_file": params_file,
                     "use_composition": "True",
-                    "container_name": "nav2_container",
                 }.items(),
             ),
             IncludeLaunchDescription(
@@ -195,9 +190,10 @@ def generate_launch_description():
                     PathJoinSubstitution([rosbot_navigation, "launch", "navigation.launch.py"])
                 ),
                 launch_arguments={
+                    "container_name": "nav2_container",
                     "namespace": namespace,
                     "params_file": params_file,
-                    "container_name": "nav2_container",
+                    "use_composition": "True",
                 }.items(),
             ),
             Node(
@@ -205,23 +201,15 @@ def generate_launch_description():
                 name="map_autosaver",
                 package="rosbot_navigation",
                 executable="map_autosaver_node",
-                parameters=[configured_params],
+                parameters=[{"autosave_period": 30.0}],
                 arguments=["--ros-args", "--log-level", log_level],
                 output="screen",
             ),
         ]
     )
 
-    # Create the launch description and populate
-    ld = LaunchDescription()
-
-    # Set environment variables
-    ld.add_action(stdout_linebuf_envvar)
-
-    # Add the actions to launch all of the navigation nodes
-    ld.add_action(bringup_group)
-
     actions = [
+        SetEnvironmentVariable("RCUTILS_LOGGING_BUFFERED_STREAM", "1"),
         declare_controller_arg,
         declare_log_level_arg,
         declare_map_arg,

@@ -6,9 +6,9 @@ WORKDIR /ros2_ws
 
 ENV PIP_BREAK_SYSTEM_PACKAGES=1
 
-COPY .. src/ros2_ws
+COPY . src/rosbot_autonomy_ros
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get upgrade -y && apt-get install -y \
         python3-pip \
         ros-dev-tools && \
     # Install dependencies
