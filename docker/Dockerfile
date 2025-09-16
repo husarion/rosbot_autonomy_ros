@@ -6,9 +6,9 @@ WORKDIR /ros2_ws
 
 ENV PIP_BREAK_SYSTEM_PACKAGES=1
 
-COPY .. src/ros2_ws
+COPY . src/rosbot_autonomy_ros
 
-RUN apt-get update && apt-get install -y \
+RUN apt update && apt upgrade -y && apt install -y \
         python3-pip \
         ros-dev-tools && \
     # Install dependencies
@@ -22,9 +22,9 @@ RUN apt-get update && apt-get install -y \
     echo $(cat /ros2_ws/src/rosbot_autonomy_ros/rosbot_navigation/package.xml | grep '<version>' | sed -r 's/.*<version>([0-9]+.[0-9]+.[0-9]+)<\/version>/\1/g') >> /version.txt && \
     # Size optimization
     export SUDO_FORCE_REMOVE=yes && \
-    apt-get remove -y \
+    apt remove -y \
         python3-pip \
         ros-dev-tools && \
-    apt-get autoremove -y && \
-    apt-get clean && \
+    apt autoremove -y && \
+    apt clean && \
     rm -rf /var/lib/apt/lists/*

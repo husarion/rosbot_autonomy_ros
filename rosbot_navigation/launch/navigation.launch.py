@@ -37,12 +37,13 @@ def generate_launch_description():
         "controller_server",
         "smoother_server",
         "planner_server",
+        # "route_server",
         "behavior_server",
         "velocity_smoother",
+        "collision_monitor",
         "bt_navigator",
         "waypoint_follower",
-        "collision_monitor",
-        # 'docking_server',
+        # "docking_server",
     ]
 
     configured_params = ParameterFile(
@@ -104,6 +105,12 @@ def generate_launch_description():
                         name="planner_server",
                         parameters=[configured_params],
                     ),
+                    # ComposableNode(
+                    #     package="nav2_route",
+                    #     plugin="nav2_route::RouteServer",
+                    #     name="route_server",
+                    #     parameters=[configured_params],
+                    # ),
                     ComposableNode(
                         package="nav2_behaviors",
                         plugin="behavior_server::BehaviorServer",
@@ -137,9 +144,9 @@ def generate_launch_description():
                         parameters=[configured_params],
                     ),
                     # ComposableNode(
-                    #     package='opennav_docking',
-                    #     plugin='opennav_docking::DockingServer',
-                    #     name='docking_server',
+                    #     package="opennav_docking",
+                    #     plugin="opennav_docking::DockingServer",
+                    #     name="docking_server",
                     #     parameters=[configured_params],
                     # ),
                     ComposableNode(
