@@ -133,17 +133,15 @@ def generate_launch_description():
 
     # Create the launch description and populate
     actions = [
-
-    # Set environment variables
-    SetEnvironmentVariable("RCUTILS_LOGGING_BUFFERED_STREAM", "1"),
-
-    # Declare the launch options
-    declare_namespace_cmd,
-    declare_use_sim_time_cmd,
-    declare_params_file_cmd,
-    declare_container_name_cmd,
-    # Add the actions to launch all of the navigation nodes
-    load_composable_nodes,
+        # Set environment variables
+        SetEnvironmentVariable("RCUTILS_LOGGING_BUFFERED_STREAM", "1"),
+        # Declare the launch options
+        declare_namespace_cmd,
+        declare_use_sim_time_cmd,
+        declare_params_file_cmd,
+        declare_container_name_cmd,
+        # Add the actions to launch all of the navigation nodes
+        load_composable_nodes,
     ]
 
     return LaunchDescription(actions)
