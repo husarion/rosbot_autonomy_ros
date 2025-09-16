@@ -61,3 +61,4 @@ repos:
     hooks:
       - id: clang-format
         args: [--style=file]
+        exclude: (^|/)foxglove\.json$
