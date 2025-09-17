@@ -72,9 +72,12 @@ start-visualization: check-husarion-webui
     sudo snap set husarion-webui webui.layout=rosbot-navigation
     sudo husarion-webui.start
 
-    local_ip=$(hostname -I | awk '{print $1}')
+    local_ip=$(ip -o -4 addr show wlan0 | awk '{print $4}' | cut -d/ -f1)
     hostname=$(hostname)
-    echo "Open a web browser and go to http://$local_ip:8080/ui or http://$hostname:8080/ui if your device is connected to the same Husarnet network."
+    echo "Access the web interface at:"
+    echo "  • Localhost:        http://localhost:8080/ui"
+    echo "  • Local network:    http://$local_ip:8080/ui"
+    echo "  • Husarnet network: http://$hostname:8080/ui"
 
 # copy repo content to remote host with 'rsync' and watch for changes
 sync hostname="${ROBOT_NAMESPACE}" password="husarion": _install-rsync
