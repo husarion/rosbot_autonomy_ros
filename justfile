@@ -50,11 +50,10 @@ _install-rsync:
 start-navigation:
     #!/bin/bash
     if grep -q "Intel(R) Atom(TM) x5-Z8350" /proc/cpuinfo && [[ "${CONTROLLER}" == "mppi" ]]; then
-        echo -e "\e[1;33mMPPI controller is currently not compatible with ROSbot 2 PRO. Please use DWB or RPP controller\e[0m"
+        echo -e "\e[1;33mMPPI controller is not compatible with ROSbot 2 PRO. Please use DWB or RPP controller\e[0m"
         exit
     fi
 
-    mkdir -m 775 -p maps
     docker compose -f docker/compose.yaml down
     docker compose -f docker/compose.yaml pull
     docker compose -f docker/compose.yaml up
@@ -73,14 +72,16 @@ start-visualization: check-husarion-webui
     sudo snap set husarion-webui webui.layout=rosbot-navigation
     sudo husarion-webui.start
 
-    local_ip=$(hostname -I | awk '{print $1}')
+    local_ip=$(ip -o -4 addr show wlan0 | awk '{print $4}' | cut -d/ -f1)
     hostname=$(hostname)
-    echo "Open a web browser and go to http://$local_ip:8080/ui or http://$hostname:8080/ui if your device is connected to the same Husarnet network."
+    echo "Access the web interface at:"
+    echo "  • Localhost:        http://localhost:8080/ui"
+    echo "  • Local network:    http://$local_ip:8080/ui"
+    echo "  • Husarnet network: http://$hostname:8080/ui"
 
 # copy repo content to remote host with 'rsync' and watch for changes
 sync hostname="${ROBOT_NAMESPACE}" password="husarion": _install-rsync
     #!/bin/bash
-    mkdir -m 775 -p maps
     sshpass -p "{{password}}" rsync -vRr --exclude='.git/' --exclude='maps/' --exclude='.docs' --delete ./ husarion@{{hostname}}:/home/husarion/${PWD##*/}
     while inotifywait -r -e modify,create,delete,move ./ --exclude='.git/' --exclude='maps/' --exclude='.docs' ; do
         sshpass -p "{{password}}" rsync -vRr --exclude='.git/' --exclude='maps/' --exclude='.docs' --delete ./ husarion@{{hostname}}:/home/husarion/${PWD##*/}
