@@ -51,19 +51,18 @@ def generate_launch_description():
 
     namespace_ext = PythonExpression(["'", namespace, "' + '/' if '", namespace, "' else ''"])
 
-    footprint_padding = 0.01  # increase slightly footprint for safety
     robot_footprint = {
         "rosbot": {
-            "min_x": -0.10 - footprint_padding,
-            "min_y": -0.12 - footprint_padding,
-            "max_x": 0.10 + footprint_padding,
-            "max_y": 0.12 + footprint_padding,
+            "min_x": -0.10,
+            "min_y": -0.12,
+            "max_x": 0.10,
+            "max_y": 0.12,
         },
         "rosbot_xl": {
-            "min_x": -0.17 - footprint_padding,
-            "min_y": -0.17 - footprint_padding,
-            "max_x": 0.17 + footprint_padding,
-            "max_y": 0.17 + footprint_padding,
+            "min_x": -0.17,
+            "min_y": -0.16,
+            "max_x": 0.17,
+            "max_y": 0.16,
         },
     }
 

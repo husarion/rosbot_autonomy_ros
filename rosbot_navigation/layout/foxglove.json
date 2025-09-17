@@ -163,12 +163,43 @@
         },
         "frame:oak_right_camera_optical_frame": {
           "visible": false
+        },
+        "frame:antenna_link": {
+          "visible": false
+        },
+        "frame:antenna_connector_link": {
+          "visible": false
+        },
+        "frame:link1": {
+          "visible": false
+        },
+        "frame:end_effector_link": {
+          "visible": false
+        },
+        "frame:link5": {
+          "visible": false
+        },
+        "frame:gripper_left_link": {
+          "visible": false
+        },
+        "frame:gripper_right_link": {
+          "visible": false
+        },
+        "frame:link2": {
+          "visible": false
+        },
+        "frame:link3": {
+          "visible": false
+        },
+        "frame:link4": {
+          "visible": false
         }
       },
       "topics": {
         "{{env "NAMESPACE"}}/map": {
           "visible": true,
-          "colorMode": "map"
+          "colorMode": "map",
+          "alpha": 0.8
         },
         "{{env "NAMESPACE"}}/plan": {
           "visible": true,
@@ -254,7 +285,7 @@
         "{{env "NAMESPACE"}}/local_costmap/costmap": {
           "visible": true,
           "colorMode": "costmap",
-          "alpha": 0.6
+          "alpha": 0.5
         },
         "{{env "NAMESPACE"}}/local_costmap/published_footprint": {
           "visible": false,
@@ -302,7 +333,7 @@
           "visible": false
         },
         "{{env "NAMESPACE"}}/polygon_slowdown": {
-          "visible": true,
+          "visible": false,
           "color": "#dd9c00ff",
           "lineWidth": 0.027
         }
@@ -310,7 +341,7 @@
       "publish": {
         "type": "pose",
         "poseTopic": "{{env "NAMESPACE"}}/goal_pose",
-        "pointTopic": "/clicked_point",
+        "pointTopic": "{{env "NAMESPACE"}}/clicked_point",
         "poseEstimateTopic": "{{env "NAMESPACE"}}/initialpose",
         "poseEstimateXDeviation": 0.5,
         "poseEstimateYDeviation": 0.5,
