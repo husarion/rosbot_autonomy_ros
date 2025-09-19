@@ -49,9 +49,19 @@ _install-rsync:
 # start ROSbot autonomy container
 start-navigation:
     #!/bin/bash
-    if grep -q "Intel(R) Atom(TM) x5-Z8350" /proc/cpuinfo && [[ "${CONTROLLER}" == "mppi" ]]; then
-        echo -e "\e[1;33mMPPI controller is not compatible with ROSbot 2 PRO. Please use DWB or RPP controller\e[0m"
-        exit
+    if grep -q "Intel(R) Atom(TM) x5-Z8350" /proc/cpuinfo; then
+        echo -e "\e[1;33mWarning: MPPI controller does NOT work on ROSbot 2 PRO (Atom x5-Z8350).\e[0m\n"
+        read -p "Do you want to use RPP controller instead? [Y/n]: " choice
+        case "$choice" in
+            [nN]|[nN][oO]) 
+                echo "Aborted. Please select a compatible controller manually."
+                exit 1
+                ;;
+            *) 
+                export CONTROLLER=RPP
+                echo "Using RPP controller."
+                ;;
+        esac
     fi
 
     docker compose -f docker/compose.yaml down
