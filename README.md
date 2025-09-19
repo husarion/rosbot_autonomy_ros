@@ -59,7 +59,7 @@ ros2 launch rosbot_navigation bringup.launch.py
 Setup environment:
 
 ```bash
-export ROBOT_MODEL=mppi # available: `dwb` and `rpp`
+export CONTROLLER=mppi # available: `dwb` and `rpp`
 export ROBOT_MODEL=rosbot # if you want to use ROSbot XL change to 'rosbot_xl'
 export SLAM=True # if you have a map you can run navigation without SLAM
 ```

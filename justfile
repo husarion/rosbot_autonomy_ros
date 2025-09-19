@@ -72,7 +72,7 @@ start-visualization: check-husarion-webui
     sudo snap set husarion-webui webui.layout=rosbot-navigation
     sudo husarion-webui.start
 
-    local_ip=$(ip -o -4 addr show wlan0 | awk '{print $4}' | cut -d/ -f1)
+    local_ip=$(ip -o -4 addr show scope global | awk '{print $4}' | cut -d/ -f1 | head -n1)
     hostname=$(hostname)
     echo "Access the web interface at:"
     echo "  • Localhost:        http://localhost:8080/ui"
