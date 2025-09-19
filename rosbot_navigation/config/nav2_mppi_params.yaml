@@ -186,17 +186,17 @@ controller_server:
       PreferForwardCritic:
         enabled: true
         cost_power: 1
-        cost_weight: 3.0
+        cost_weight: 2.0
         threshold_to_consider: 1.2
       ObstaclesCritic:
         enabled: true
         cost_power: 1
-        repulsion_weight: 5.0
-        critical_weight: 8.0
+        repulsion_weight: 3.5
+        critical_weight: 7.5
         consider_footprint: false
         collision_cost: 1000000.0
-        collision_margin_distance: 0.04
-        near_goal_distance: 0.5
+        collision_margin_distance: 0.05
+        near_goal_distance: 0.7
         inflation_radius: 0.5
         cost_scaling_factor: 10.0
       CostCritic:
