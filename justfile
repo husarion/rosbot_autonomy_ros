@@ -4,6 +4,8 @@ set dotenv-load # to read ROBOT_NAMESPACE from .env file
 alias hw := start-navigation
 [private]
 alias sim := start-simulation
+[private]
+alias vis := start-visualization
 
 [private]
 default:
@@ -20,10 +22,10 @@ check-husarion-webui:
 
     if ! snap list husarion-webui &> /dev/null; then
         echo "husarion-webui is not installed."
-        read -p "Do you want to install husarion-webui? (y/n): " choice
+        read -p "Do you want to install husarion-webui for ROS_DISTRO=$ROS_DISTRO? (y/n): " choice
         case "$choice" in
             y|Y )
-                sudo snap install husarion-webui --channel=jazzy
+                sudo snap install husarion-webui --channel="$ROS_DISTRO"
                 ;;
             n|N )
                 echo "Installation aborted."
@@ -34,6 +36,30 @@ check-husarion-webui:
                 exit 1
                 ;;
         esac
+    else
+        INSTALLED_CHANNEL=$(snap info husarion-webui | awk '/tracking:/ {print $2}' | cut -d'/' -f1)
+        echo "husarion-webui is installed (channel: $INSTALLED_CHANNEL)."
+
+        if [[ "$INSTALLED_CHANNEL" != "$ROS_DISTRO" ]]; then
+            echo "Installed channel ($INSTALLED_CHANNEL) does not match ROS_DISTRO ($ROS_DISTRO)."
+            read -p "Do you want to reinstall husarion-webui with channel=$ROS_DISTRO? (y/n): " choice
+            case "$choice" in
+                y|Y )
+                    sudo snap remove husarion-webui
+                    sudo snap install husarion-webui --channel="$ROS_DISTRO"
+                    ;;
+                n|N )
+                    echo "Reinstallation aborted."
+                    exit 0
+                    ;;
+                * )
+                    echo "Invalid input. Please respond with 'y' or 'n'."
+                    exit 1
+                    ;;
+            esac
+        else
+            echo "husarion-webui is up to date and matches ROS_DISTRO=$ROS_DISTRO."
+        fi
     fi
 
 _install-rsync:
