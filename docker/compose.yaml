@@ -8,13 +8,16 @@ services:
     ipc: host
     environment:
       - SAVE_MAP_PERIOD=${SAVE_MAP_PERIOD}
+    env_file:
+      - .env
     volumes:
+      - ./dds-config-udp.xml:/udp_profile.xml:ro
       - ../rosbot_navigation:/ros2_ws/src/rosbot_autonomy_ros/rosbot_navigation
       - ./maps:/maps
     command: >
       ros2 launch rosbot_navigation bringup.launch.py
-        controller:=${CONTROLLER:-mppi}
         map:=/maps/map.yaml
-        robot_model:=${ROBOT_MODEL:-err}
+        params_file:=/ros2_ws/src/rosbot_autonomy_ros/rosbot_navigation/config/nav2_${CONTROLLER:-mppi}_params.yaml
+        robot_model:=${ROBOT_MODEL:?err}
         slam:=${SLAM:-True}
         use_sim_time:=False
