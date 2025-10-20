@@ -117,10 +117,11 @@ bt_navigator_rclcpp_node:
 controller_server:
   ros__parameters:
     use_sim_time: false
-    controller_frequency: 5.0
+    controller_frequency: 20.0
+    costmap_update_timeout: 0.30
     min_x_velocity_threshold: 0.01    # Measured
     min_y_velocity_threshold: 0.01    # Measured
-    min_theta_velocity_threshold: 0.1 # Measured
+    min_theta_velocity_threshold: 0.02
     failure_tolerance: 0.3
     progress_checker_plugin: progress_checker
     goal_checker_plugins: [goal_checker]
@@ -129,9 +130,8 @@ controller_server:
     # Progress checker parameters
     progress_checker:
       plugin: nav2_controller::SimpleProgressChecker
-      required_movement_radius: 0.5
-      movement_time_allowance: 10.0
-
+      required_movement_radius: 0.4
+      movement_time_allowance: 8.0
     # Goal checker parameters
     goal_checker:
       plugin: nav2_controller::SimpleGoalChecker
@@ -142,40 +142,42 @@ controller_server:
     # MPPI controller
     FollowPath:
       plugin: nav2_mppi_controller::MPPIController
-      time_steps: 12
-      model_dt: 0.2
-      batch_size: 500
-      vx_std: 0.2
+      time_steps: 56
+      model_dt: 0.05
+      batch_size: 2000
+      vx_std: 0.35
       vy_std: 0.2
-      wz_std: 0.6
-      vx_max: 0.5
-      vx_min: -0.35
+      wz_std: 0.4
+      vx_max: 0.7
+      vx_min: -0.4
       vy_max: 0.4
       vy_min: -0.4
       wz_max: 1.5
       iteration_count: 1
-      prune_distance: 1.5
+      prune_distance: 2.1
       transform_tolerance: 0.1
       temperature: 0.3
       gamma: 0.015
       motion_model: DiffDrive
-      reset_period: 1.0
       regenerate_noises: true
       visualize: false
+      publish_optimal_trajectory: false
       TrajectoryVisualizer:
-        trajectory_step: 5
+        trajectory_step: 10
         time_step: 5
-      critics: [ConstraintCritic, ObstaclesCritic, GoalCritic, GoalAngleCritic, PathAlignCritic, PathFollowCritic,
+      AckermannConstraints:
+        min_turning_r: 0.2
+      critics: [ConstraintCritic, CostCritic, GoalCritic, GoalAngleCritic, PathAlignCritic, PathFollowCritic,
         PathAngleCritic, PreferForwardCritic]
       ConstraintCritic:
         enabled: true
         cost_power: 1
-        cost_weight: 2.0
+        cost_weight: 4.0
       GoalCritic:
         enabled: true
         cost_power: 1
-        cost_weight: 25.0
-        threshold_to_consider: 1.0
+        cost_weight: 5.0
+        threshold_to_consider: 1.4
       GoalAngleCritic:
         enabled: true
         cost_power: 1
@@ -185,37 +187,36 @@ controller_server:
         enabled: true
         cost_power: 1
         cost_weight: 5.0
-        threshold_to_consider: 0.5
-      ObstaclesCritic:
+        threshold_to_consider: 2.0
+      CostCritic:
         enabled: true
         cost_power: 1
-        repulsion_weight: 1.7
-        critical_weight: 10.0
+        cost_weight: 3.81
+        near_collision_cost: 253
+        critical_cost: 300.0
         consider_footprint: false
-        collision_cost: 10000.0
-        collision_margin_distance: 0.06
-        near_goal_distance: 0.5
-        inflation_radius: 0.5
-        cost_scaling_factor: 4.0
+        collision_cost: 1000000.0
+        near_goal_distance: 1.0
+        trajectory_point_step: 2
       PathAlignCritic:
         enabled: true
         cost_power: 1
-        cost_weight: 2.0
+        cost_weight: 14.0
         max_path_occupancy_ratio: 0.05
-        trajectory_point_step: 3
+        trajectory_point_step: 4
         threshold_to_consider: 0.5
         offset_from_furthest: 20
         use_path_orientations: false
       PathFollowCritic:
         enabled: true
         cost_power: 1
-        cost_weight: 2.0
+        cost_weight: 5.0
         offset_from_furthest: 5
-        threshold_to_consider: 1.0
+        threshold_to_consider: 1.4
       PathAngleCritic:
         enabled: true
         cost_power: 1
-        cost_weight: 1.0
+        cost_weight: 2.0
         offset_from_furthest: 4
         threshold_to_consider: 0.5
         max_angle_to_furthest: 1.0
@@ -232,13 +233,13 @@ local_costmap:
       rolling_window: true
       width: 5
       height: 5
-      resolution: 0.01
+      resolution: 0.03 # typical lidar uncertainty
       footprint: '[[<min_x>, <min_y>], [<min_x>, <max_y>], [<max_x>, <max_y>], [<max_x>, <min_y>]]'
       plugins: [voxel_layer, inflation_layer]
       inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer
-        cost_scaling_factor: 10.0
-        inflation_radius: 0.5
+        cost_scaling_factor: 3.0
+        inflation_radius: 0.7
       voxel_layer:
         plugin: nav2_costmap_2d::VoxelLayer
         enabled: true
@@ -251,14 +252,16 @@ local_costmap:
         observation_sources: scan
         scan:
           topic: /<namespace>/scan_filtered
-          max_obstacle_height: 2.0
           clearing: true
           marking: true
           data_type: LaserScan
-          raytrace_max_range: 3.0
+          raytrace_max_range: 5.0
           raytrace_min_range: 0.0
-          obstacle_max_range: 3.0
+          obstacle_max_range: 4.5
           obstacle_min_range: 0.0
+          max_obstacle_height: 2.0
+          min_obstacle_height: 0.0
+          inf_is_valid: false
       always_send_full_costmap: true
 
 global_costmap:
@@ -291,8 +294,8 @@ global_costmap:
           obstacle_min_range: 0.0
       inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer
-        cost_scaling_factor: 4.0
-        inflation_radius: 1.5
+        cost_scaling_factor: 3.0
+        inflation_radius: 0.7
       always_send_full_costmap: true
 
 map_server:
@@ -447,14 +450,14 @@ waypoint_follower:
 velocity_smoother:
   ros__parameters:
     use_sim_time: false
-    smoothing_frequency: 5.0
+    smoothing_frequency: 20.0
     scale_velocities: false
-    feedback: CLOSED_LOOP
-    max_velocity: [1.0, 1.0, 2.0]
-    min_velocity: [-1.0, -1.0, -2.0]
+    feedback: OPEN_LOOP
+    max_velocity: [0.6, 0.4, 1.5]
+    min_velocity: [-0.4, -0.4, -1.5]
     max_accel: [0.8, 0.8, 1.2] # [2.5, 2.5, 3.2]
     max_decel: [-0.8, -0.8, -1.2] # [-2.5, -2.5, -3.2]
     odom_topic: odometry/filtered
     odom_duration: 0.1
-    deadband_velocity: [0.01, 0.01, 0.1] # Measured
+    deadband_velocity: [0.01, 0.01, 0.02] # Measured
     velocity_timeout: 1.0
