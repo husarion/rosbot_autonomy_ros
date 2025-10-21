@@ -102,7 +102,7 @@ controller_server:
     # Goal checker parameters
     goal_checker:
       plugin: nav2_controller::SimpleGoalChecker
-      xy_goal_tolerance: 0.12
+      xy_goal_tolerance: 0.1
       yaw_goal_tolerance: 0.2
       stateful: true
 
@@ -124,7 +124,7 @@ controller_server:
       vx_min: -0.4
       vy_max: 0.4
       vy_min: -0.4
-      wz_max: 1.5
+      wz_max: 2.0
       iteration_count: 1
       prune_distance: 2.1
       transform_tolerance: 0.1
@@ -189,9 +189,9 @@ controller_server:
         enabled: true
         cost_power: 1
         cost_weight: 2.0
-        offset_from_furthest: 4
+        offset_from_furthest: 6
         threshold_to_consider: 0.5
-        max_angle_to_furthest: 1.0
+        max_angle_to_furthest: 0.7
         mode: 0
 
 local_costmap:
@@ -204,7 +204,7 @@ local_costmap:
       rolling_window: true
       width: 5
       height: 5
-      resolution: 0.03 # typical lidar uncertainty
+      resolution: 0.03
       footprint: '[[<min_x>, <min_y>], [<min_x>, <max_y>], [<max_x>, <max_y>], [<max_x>, <min_y>]]'
       plugins: [voxel_layer, inflation_layer]
       inflation_layer:
