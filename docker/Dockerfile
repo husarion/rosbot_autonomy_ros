@@ -9,7 +9,6 @@ ENV PIP_BREAK_SYSTEM_PACKAGES=1
 COPY . src/rosbot_autonomy_ros
 
 RUN apt-get update && apt-get upgrade -y && apt-get install -y \
-        build-essential \
         python3-pip \
         ros-dev-tools && \
     # Install dependencies
@@ -18,7 +17,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     rosdep install --from-paths src -y -i && \
     # Build
     source /opt/ros/$ROS_DISTRO/setup.bash && \
-    colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release && \
+    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release && \
     # Get version
     echo $(cat /ros2_ws/src/rosbot_autonomy_ros/rosbot_navigation/package.xml | grep '<version>' | sed -r 's/.*<version>([0-9]+.[0-9]+.[0-9]+)<\/version>/\1/g') >> /version.txt && \
     # Size optimization
