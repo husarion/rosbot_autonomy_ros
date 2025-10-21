@@ -9,6 +9,7 @@ ENV PIP_BREAK_SYSTEM_PACKAGES=1
 COPY . src/rosbot_autonomy_ros
 
 RUN apt-get update && apt-get upgrade -y && apt-get install -y \
+        build-essential \
         python3-pip \
         ros-dev-tools && \
     # Install dependencies
