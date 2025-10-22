@@ -136,12 +136,85 @@
         },
         "frame:slamtec_rplidar_link": {
           "visible": false
+        },
+        "frame:oak": {
+          "visible": false
+        },
+        "frame:oak_imu_frame": {
+          "visible": false
+        },
+        "frame:oak_left_camera_frame": {
+          "visible": false
+        },
+        "frame:oak_left_camera_optical_frame": {
+          "visible": false
+        },
+        "frame:oak_model_origin": {
+          "visible": false
+        },
+        "frame:oak_rgb_camera_frame": {
+          "visible": false
+        },
+        "frame:oak_rgb_camera_optical_frame": {
+          "visible": false
+        },
+        "frame:oak_right_camera_frame": {
+          "visible": false
+        },
+        "frame:oak_right_camera_optical_frame": {
+          "visible": false
+        },
+        "frame:antenna_link": {
+          "visible": false
+        },
+        "frame:antenna_connector_link": {
+          "visible": false
+        },
+        "frame:link1": {
+          "visible": false
+        },
+        "frame:end_effector_link": {
+          "visible": false
+        },
+        "frame:link5": {
+          "visible": false
+        },
+        "frame:gripper_left_link": {
+          "visible": false
+        },
+        "frame:gripper_right_link": {
+          "visible": false
+        },
+        "frame:link2": {
+          "visible": false
+        },
+        "frame:link3": {
+          "visible": false
+        },
+        "frame:link4": {
+          "visible": false
+        },
+        "frame:camera_mount_mid_link": {
+          "visible": false
+        },
+        "frame:camera_mount_bot_link": {
+          "visible": false
+        },
+        "frame:camera_mount_top_link": {
+          "visible": false
+        },
+        "frame:rplidar_link": {
+          "visible": false
+        },
+        "frame:oak_link": {
+          "visible": false
         }
       },
       "topics": {
         "{{env "NAMESPACE"}}/map": {
           "visible": true,
-          "colorMode": "map"
+          "colorMode": "map",
+          "alpha": 0.8
         },
         "{{env "NAMESPACE"}}/plan": {
           "visible": true,
@@ -219,7 +292,7 @@
           "type": "line"
         },
         "{{env "NAMESPACE"}}/trajectories": {
-          "visible": true
+          "visible": false
         },
         "{{env "NAMESPACE"}}/marker": {
           "visible": true
@@ -227,7 +300,7 @@
         "{{env "NAMESPACE"}}/local_costmap/costmap": {
           "visible": true,
           "colorMode": "costmap",
-          "alpha": 0.6
+          "alpha": 0.5
         },
         "{{env "NAMESPACE"}}/local_costmap/published_footprint": {
           "visible": false,
@@ -240,11 +313,6 @@
           "alpha": 0.3
         },
         "{{env "NAMESPACE"}}/global_costmap/published_footprint": {
-          "visible": false,
-          "color": "#34ff00ff",
-          "lineWidth": 0.03
-        },
-        "{{env "NAMESPACE"}}/local_costmap/published_footprint": {
           "visible": false,
           "color": "#34ff00ff",
           "lineWidth": 0.03
@@ -272,12 +340,23 @@
         "{{env "NAMESPACE"}}/transformed_global_plan": {
           "visible": false,
           "lineWidth": 0.27
+        },
+        "{{env "NAMESPACE"}}/optimal_trajectory": {
+          "visible": false
+        },
+        "{{env "NAMESPACE"}}/collision_monitor/collision_points_marker": {
+          "visible": false
+        },
+        "{{env "NAMESPACE"}}/polygon_slowdown": {
+          "visible": false,
+          "color": "#dd9c00ff",
+          "lineWidth": 0.027
         }
       },
       "publish": {
         "type": "pose",
         "poseTopic": "{{env "NAMESPACE"}}/goal_pose",
-        "pointTopic": "/clicked_point",
+        "pointTopic": "{{env "NAMESPACE"}}/clicked_point",
         "poseEstimateTopic": "{{env "NAMESPACE"}}/initialpose",
         "poseEstimateXDeviation": 0.5,
         "poseEstimateYDeviation": 0.5,
@@ -342,12 +421,12 @@
     "Joy!nlny7x": {
       "topic": "{{env "NAMESPACE"}}/cmd_vel",
       "frameId": "",
-      "publishRate": 5,
-      "stamped": false,
+      "publishRate": 10,
+      "stamped": {{env "CMD_VEL_STAMPED"}},
       "advanced": false,
       "xAxis": {
         "field": "linear-x",
-        "initial": 0.8,
+        "initial": 0.5,
         "limit": 1
       },
       "yAxis": {
