@@ -58,13 +58,13 @@ ros2 launch rosbot_navigation bringup.launch.py robot_model:=<rosbot/rosbot_xl>
 
 4. **DDS**
 
-    The default configuration starts [FastDDS - UDP](demo/dds-config-udp.xml) configuration. All snap should share the same DDS configuration. 
+    The default configuration starts [FastDDS - UDP](demo/dds-config-udp.xml) configuration. All snap should share the same DDS configuration.
 
 ### 🧭 Navigation
 
 #### Step 1: Environment configuration
 
-Setup environment variable in `demo/.env`. 
+Setup environment variable in `demo/.env`.
 
 #### Step 2: Run navigation
 
