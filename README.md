@@ -29,8 +29,12 @@ colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 ```bash
 source install/setup.bash
-ros2 launch rosbot_navigation bringup.launch.py
+ros2 launch rosbot_navigation bringup.launch.py robot_model:=<rosbot/rosbot_xl>
 ```
+
+> [!NOTE]
+> Additional arguments are detailed in the [Launch Arguments](#launch-arguments) section.
+> MPPI controller is not compatible with **ROSbot 2 PRO**. Please use DWB or RPP controller.
 
 ## 🚀 Demo
 
@@ -56,16 +60,7 @@ ros2 launch rosbot_navigation bringup.launch.py
 
 #### Step 1: Environment configuration
 
-Setup environment:
-
-```bash
-export CONTROLLER=mppi # available: `dwb` and `rpp`
-export ROBOT_MODEL=rosbot # if you want to use ROSbot XL change to 'rosbot_xl'
-export SLAM=True # if you have a map you can run navigation without SLAM
-```
-
-> [!NOTE]
-> Additional arguments are detailed in the [Launch Arguments](#launch-arguments) section.
+Setup environment variable in `demo/.env`. 
 
 #### Step 2: Run navigation
 
