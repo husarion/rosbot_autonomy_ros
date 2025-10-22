@@ -56,6 +56,10 @@ ros2 launch rosbot_navigation bringup.launch.py robot_model:=<rosbot/rosbot_xl>
     sudo snap install just
     ```
 
+4. **DDS**
+
+    The default configuration starts [FastDDS - UDP](demo/dds-config-udp.xml) configuration. All snap should share the same DDS configuration. 
+
 ### 🧭 Navigation
 
 #### Step 1: Environment configuration
