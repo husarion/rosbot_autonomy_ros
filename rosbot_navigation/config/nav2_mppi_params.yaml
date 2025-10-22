@@ -153,7 +153,7 @@ controller_server:
       GoalAngleCritic:
         enabled: true
         cost_power: 1
-        cost_weight: 3.0
+        cost_weight: 2.5
         threshold_to_consider: 0.5
       PreferForwardCritic:
         enabled: true
@@ -168,7 +168,7 @@ controller_server:
         critical_cost: 300.0
         consider_footprint: false
         collision_cost: 1000000.0
-        near_goal_distance: 1.0
+        near_goal_distance: 0.7
         trajectory_point_step: 2
       PathAlignCritic:
         enabled: true
