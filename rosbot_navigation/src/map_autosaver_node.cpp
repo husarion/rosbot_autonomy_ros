@@ -23,7 +23,7 @@ AutosaveMapNode::AutosaveMapNode(const std::string &node_name,
                                   MIN_SAVE_MAP_PERIOD.count());
   this->declare_parameter<std::string>("map_directory", "/maps/map");
 
-  double period;
+  double period = MIN_SAVE_MAP_PERIOD.count();
   this->get_parameter("autosave_period", period);
   autosave_period_ = std::chrono::duration<double>(period);
 

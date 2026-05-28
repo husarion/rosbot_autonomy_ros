@@ -1,5 +1,5 @@
 ---
-# Nav2 parameters shared by all controllers. Merged with nav2_<controller>_params.yaml at launch.
+# Nav2 parameters shared by all controllers. Merged with nav2_<controller>.yaml at launch.
 
 amcl:
   ros__parameters:
@@ -200,3 +200,174 @@ waypoint_follower:
       plugin: nav2_waypoint_follower::WaitAtWaypoint
       enabled: true
       waypoint_pause_duration: 200
+
+# Sections shared by all controllers, all using MPPI's values (the best-tuned set,
+# which works for DWB/RPP too): costmaps, smoother_server, planner_server
+# (SmacPlanner2D — steers to aisle centres), collision_monitor (two-tier slowdown
+# zones) and velocity_smoother. velocity_smoother runs OPEN_LOOP (Nav2 default, no
+# odom dependency) with a gentle accel ramp; its velocity caps sit above DWB/RPP's
+# own controller limits, so nothing is clipped.
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      update_frequency: 10.0
+      publish_frequency: 2.0
+      global_frame: odom
+      robot_base_frame: base_link
+      rolling_window: true
+      width: 5
+      height: 5
+      resolution: 0.03
+      footprint: '[[<min_x>, <min_y>], [<min_x>, <max_y>], [<max_x>, <max_y>], [<max_x>, <min_y>]]'
+      plugins: [voxel_layer, inflation_layer]
+      inflation_layer:
+        plugin: nav2_costmap_2d::InflationLayer
+        cost_scaling_factor: 3.0
+        inflation_radius: 0.7
+      voxel_layer:
+        plugin: nav2_costmap_2d::VoxelLayer
+        enabled: true
+        publish_voxel_map: true
+        origin_z: 0.0
+        z_resolution: 0.05
+        z_voxels: 16
+        max_obstacle_height: 2.0
+        mark_threshold: 0
+        observation_sources: scan
+        scan:
+          topic: /<namespace>/scan_filtered
+          clearing: true
+          marking: true
+          data_type: LaserScan
+          raytrace_max_range: 5.0
+          raytrace_min_range: 0.0
+          obstacle_max_range: 4.5
+          obstacle_min_range: 0.0
+          max_obstacle_height: 2.0
+          min_obstacle_height: 0.0
+          inf_is_valid: false
+      always_send_full_costmap: true
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      update_frequency: 1.0
+      publish_frequency: 1.0
+      global_frame: map
+      robot_base_frame: base_link
+      footprint: '[[<min_x>, <min_y>], [<min_x>, <max_y>], [<max_x>, <max_y>], [<max_x>, <min_y>]]'
+      resolution: 0.05
+      track_unknown_space: true
+      plugins: [static_layer, obstacle_layer, inflation_layer]
+      static_layer:
+        plugin: nav2_costmap_2d::StaticLayer
+        map_subscribe_transient_local: true
+      obstacle_layer:
+        plugin: nav2_costmap_2d::ObstacleLayer
+        observation_sources: scan
+        scan:
+          topic: /<namespace>/scan_filtered
+          max_obstacle_height: 2.0
+          clearing: true
+          marking: true
+          data_type: LaserScan
+          raytrace_max_range: 12.0
+          raytrace_min_range: 0.0
+          obstacle_max_range: 10.0
+          obstacle_min_range: 0.0
+      inflation_layer:
+        plugin: nav2_costmap_2d::InflationLayer
+        cost_scaling_factor: 3.0
+        inflation_radius: 0.7
+      always_send_full_costmap: true
+
+smoother_server:
+  ros__parameters:
+    smoother_plugins: [simple_smoother]
+    simple_smoother:
+      plugin: nav2_smoother::SimpleSmoother
+      tolerance: 1.0e-10
+      max_its: 1000
+      refinement_num: 2
+      enforce_path_inversion: true  # don't smooth over directional changes
+      do_refinement: true
+
+velocity_smoother:
+  ros__parameters:
+    enable_stamped_cmd_vel: true
+    smoothing_frequency: 20.0
+    scale_velocities: false
+    feedback: OPEN_LOOP
+    max_velocity: [0.6, 0.4, 1.5]
+    min_velocity: [-0.4, -0.4, -1.5]
+    max_accel: [0.8, 0.8, 1.2]
+    max_decel: [-0.8, -0.8, -1.2]
+    odom_topic: odometry/filtered
+    odom_duration: 0.1
+    deadband_velocity: [0.01, 0.01, 0.02] # Measured
+    velocity_timeout: 1.0
+
+planner_server:
+  ros__parameters:
+    expected_planner_frequency: 2.0
+    planner_plugins: [GridBased]
+    costmap_update_timeout: 2.0  # global costmap runs ~1 Hz; 1.0 s was too tight under load
+    GridBased:
+      plugin: nav2_smac_planner::SmacPlanner2D
+      tolerance: 0.125
+      downsample_costmap: false
+      downsampling_factor: 1
+      allow_unknown: true
+      max_iterations: 500000
+      max_on_approach_iterations: 500
+      max_planning_time: 3.0
+      cost_travel_multiplier: 2.5
+      use_final_approach_orientation: false
+      smoother:
+        max_iterations: 800
+        w_smooth: 0.3
+        w_data: 0.2
+        tolerance: 1.0e-9
+
+collision_monitor:
+  ros__parameters:
+    enable_stamped_cmd_vel: true
+    base_frame_id: base_link
+    odom_frame_id: odom
+    cmd_vel_in_topic: cmd_vel_smoothed
+    cmd_vel_out_topic: cmd_vel
+    state_topic: collision_monitor_state
+    transform_tolerance: 0.2
+    source_timeout: 1.0
+    base_shift_correction: true
+    stop_pub_timeout: 2.0
+    # Polygons represent zone around the robot for stop, slowdown and limit action types,
+    # and robot footprint for approach action type.
+    polygons: [FootprintApproach, SafetySlowdown, CriticalSlowdown]
+    FootprintApproach:
+      type: polygon
+      action_type: approach
+      footprint_topic: local_costmap/published_footprint
+      time_before_collision: 1.2
+      simulation_time_step: 0.1
+      min_points: 6
+    SafetySlowdown:
+      type: polygon
+      points: '[[0.6, 0.4], [0.6, -0.4], [-0.1, -0.4], [-0.1, 0.4]]'
+      action_type: slowdown
+      min_points: 4
+      slowdown_ratio: 0.5
+      visualize: true
+      polygon_pub_topic: safety_slowdown
+    CriticalSlowdown:
+      type: polygon
+      points: '[[0.25, 0.25], [0.25, -0.25], [-0.1, -0.25], [-0.1, 0.25]]'
+      action_type: slowdown
+      min_points: 2
+      slowdown_ratio: 0.85
+      visualize: true
+      polygon_pub_topic: critical_slowdown
+    observation_sources: [scan]
+    scan:
+      type: scan
+      topic: scan_filtered

@@ -99,12 +99,12 @@ just start-simulation
 
 | Argument         | Description <br/> ***Type:*** `Default`                                                               |
 | ---------------- | ----------------------------------------------------------------------------------------------------- |
-| `common_params_file` | Path to the common nav2 parameters file (merged with `params_file`). <br/> ***string:*** [`nav2_common_params.yaml`](./rosbot_navigation/config/nav2_common_params.yaml) |
+| `common_params_file` | Path to the common nav2 parameters file (merged with `params_file`). <br/> ***string:*** [`nav2_common.yaml`](./rosbot_navigation/config/nav2_common.yaml) |
 | `controller`     | Nav2 controller type. <br/> ***string*** `mppi` (choices: `dwb`, `mppi`, `rpp`)                        |
 | `log_level`      | Logging level. <br/> ***string*** `info` (choices: `debug`, `info`, `warning`, `error`)               |
 | `map`            | Path to map yaml file to load. <br/> ***string:*** `/maps/map.yaml`                                   |
 | `namespace`      | Add namespace to all launched nodes. <br/> ***string:*** `env(ROBOT_NAMESPACE)`                       |
-| `params_file`    | Path to the controller-specific nav2 parameters file. <br/> ***string:*** [`nav2_<controller>_params.yaml`](./rosbot_navigation/config/) |
-| `robot_model`    | Specify robot model. <br/> ***string:*** `env(ROBOT_MODEL_NAME)` (choices: `rosbot`, `rosbot_xl`)     |
+| `params_file`    | Path to the controller-specific nav2 parameters file. <br/> ***string:*** [`nav2_<controller>.yaml`](./rosbot_navigation/config/) |
+| `robot_model`    | Specify robot model. <br/> ***string:*** `env(ROBOT_MODEL)` (choices: `rosbot`, `rosbot_xl`)          |
 | `slam`           | Whether run a SLAM. <br/> ***bool:*** `True`                                                          |
 | `use_sim_time`   | Use simulation (Gazebo) clock if true. <br/> ***bool:*** `False`                                      |

@@ -15,6 +15,7 @@
 import os
 import tempfile
 
+import yaml
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
@@ -82,24 +83,21 @@ def generate_launch_description():
         model = robot_model.perform(context)
         share = rosbot_navigation.perform(context)
 
-        def strip_doc_marker(text):
-            return "\n".join(
-                line for line in text.splitlines() if line.strip() != "---"
-            )
+        def substitute(text):
+            text = text.replace("<namespace>/", (ns + "/") if ns else "")
+            if model in robot_footprint:
+                fp = robot_footprint[model]
+                for key in ("min_x", "max_x", "min_y", "max_y"):
+                    text = text.replace(f"<{key}>", str(fp[key]))
+            return text
 
-        # Merge common + controller files into one: passing two ParameterFiles to a
-        # composable node drops nested/list params (e.g. MPPI critics). Top-level keys
-        # are disjoint, so a textual union is safe.
-        merged = (
-            strip_doc_marker(open(common_params_file.perform(context)).read())
-            + "\n"
-            + strip_doc_marker(open(params_file.perform(context)).read())
-        )
-        merged = merged.replace("<namespace>/", (ns + "/") if ns else "")
-        if model in robot_footprint:
-            fp = robot_footprint[model]
-            for key in ("min_x", "max_x", "min_y", "max_y"):
-                merged = merged.replace(f"<{key}>", str(fp[key]))
+        # Common base + controller file merged into one file. They are disjoint at the
+        # top level (common = everything but controller_server; controller file =
+        # controller_server only), so a shallow merge suffices. One merged file is
+        # required: two separate ParameterFiles would drop nested/list params.
+        common = yaml.safe_load(substitute(open(common_params_file.perform(context)).read()))
+        controller = yaml.safe_load(substitute(open(params_file.perform(context)).read()))
+        merged = {**common, **controller}
 
         laser = open(os.path.join(share, "config", "laser_filter.yaml")).read()
         if model in laser_filter_box:
@@ -108,7 +106,7 @@ def generate_launch_description():
 
         fd, merged_path = tempfile.mkstemp(prefix="nav2_merged_", suffix=".yaml")
         with os.fdopen(fd, "w") as f:
-            f.write(merged)
+            yaml.safe_dump(merged, f)
         fd, laser_path = tempfile.mkstemp(prefix="laser_filter_", suffix=".yaml")
         with os.fdopen(fd, "w") as f:
             f.write(laser)
@@ -164,7 +162,7 @@ def generate_launch_description():
         description="Add namespace to all launched nodes",
     )
 
-    params_filename = PythonExpression(["'nav2_' + '", controller, "' + '_params.yaml'"])
+    params_filename = PythonExpression(["'nav2_' + '", controller, "' + '.yaml'"])
     declare_params_file_arg = DeclareLaunchArgument(
         "params_file",
         default_value=PathJoinSubstitution([rosbot_navigation, "config", params_filename]),
@@ -174,14 +172,14 @@ def generate_launch_description():
     declare_common_params_file_arg = DeclareLaunchArgument(
         "common_params_file",
         default_value=PathJoinSubstitution(
-            [rosbot_navigation, "config", "nav2_common_params.yaml"]
+            [rosbot_navigation, "config", "nav2_common.yaml"]
         ),
         description="Path to the common nav2 parameters file (shared across controllers)",
     )
 
     declare_robot_model_arg = DeclareLaunchArgument(
         "robot_model",
-        default_value=EnvironmentVariable("ROBOT_MODEL_NAME", default_value=""),
+        default_value=EnvironmentVariable("ROBOT_MODEL", default_value=""),
         description="Specify robot model",
         choices=["rosbot", "rosbot_xl"],
     )
