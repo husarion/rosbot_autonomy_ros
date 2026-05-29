@@ -46,7 +46,7 @@ ros2 launch rosbot_navigation bringup.launch.py robot_model:=<rosbot/rosbot_xl>
 
 2. **Robot Configuration**
 
-    The demo assumes that the `/scan` topic (`LaserScan` message type) is available.
+    The demo assumes that the `scan` topic (`LaserScan` message type) is available.
 
 3. **Just**
 
@@ -65,6 +65,15 @@ ros2 launch rosbot_navigation bringup.launch.py robot_model:=<rosbot/rosbot_xl>
 #### Step 1: Environment configuration
 
 Setup environment variable in `docker/.env`.
+
+In simulation, Nav2 needs a lidar publishing the `scan` topic, so pick a `CONFIGURATION` that includes one:
+
+| `ROBOT_MODEL` | Configurations with a lidar                      |
+| ------------- | ------------------------------------------------ |
+| `rosbot`      | `basic`                                          |
+| `rosbot_xl`   | `autonomy`, `manipulation`, `manipulation_pro`   |
+
+On `rosbot_xl`, `basic` and `telepresence` have no lidar and will not work with Nav2.
 
 #### Step 2: Run navigation
 
