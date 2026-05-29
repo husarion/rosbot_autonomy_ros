@@ -21,9 +21,9 @@ AutosaveMapNode::AutosaveMapNode(const std::string &node_name,
     : Node(node_name, options) {
   this->declare_parameter<double>("autosave_period",
                                   MIN_SAVE_MAP_PERIOD.count());
-  this->declare_parameter<std::string>("map_directory", "/maps/map");
+  this->declare_parameter<std::string>("map_save_path", "/maps/map");
 
-  double period;
+  double period = MIN_SAVE_MAP_PERIOD.count();
   this->get_parameter("autosave_period", period);
   autosave_period_ = std::chrono::duration<double>(period);
 
@@ -64,8 +64,8 @@ SaveMapReq::SharedPtr AutosaveMapNode::CreateSaveMapRequest() {
   request->free_thresh = 0.25;
   request->occupied_thresh = 0.65;
   request->map_topic = ns + std::string("map");
-  // Allow dynamically override parameter
-  this->get_parameter("map_directory", request->map_url);
+  // Read each call so the save path can be overridden at runtime.
+  this->get_parameter("map_save_path", request->map_url);
   request->map_mode = "trinary";
   request->image_format = "png";
 

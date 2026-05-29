@@ -1,0 +1,17 @@
+---
+# Box filter removing the robot's own structure (self-returns) from the laser scan.
+# <lf_*> placeholders are substituted per robot_model at launch.
+laser_filter:
+  ros__parameters:
+    filter1:
+      name: box_filter
+      type: laser_filters/LaserScanBoxFilter
+      params:
+        box_frame: base_link
+        min_x: <lf_min_x>
+        max_x: <lf_max_x>
+        min_y: <lf_min_y>
+        max_y: <lf_max_y>
+        min_z: 0.0
+        max_z: <lf_max_z>
+        invert: false

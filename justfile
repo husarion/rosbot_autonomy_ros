@@ -121,21 +121,21 @@ start-navigation:
         esac
     fi
 
-    docker compose -f demo/compose.yaml down
-    docker compose -f demo/compose.yaml pull
-    docker compose -f demo/compose.yaml up
+    docker compose -f docker/compose.yaml down
+    docker compose -f docker/compose.yaml pull
+    docker compose -f docker/compose.yaml up
 
 # start Gazebo simulator with autonomy
 start-simulation:
     #!/bin/bash
     xhost +local:docker
-    docker compose -f demo/compose.sim.yaml down
-    docker compose -f demo/compose.sim.yaml pull
-    docker compose -f demo/compose.sim.yaml up
+    docker compose -f docker/compose.sim.yaml down
+    docker compose -f docker/compose.sim.yaml pull
+    docker compose -f docker/compose.sim.yaml up
 
 start-visualization: check-husarion-webui
     #!/bin/bash
-    sudo cp demo/foxglove.json /var/snap/husarion-webui/common/foxglove-rosbot-navigation.json
+    sudo cp rosbot_navigation/layout/foxglove.json /var/snap/husarion-webui/common/foxglove-rosbot-navigation.json
     sudo snap set husarion-webui webui.layout=rosbot-navigation
     sudo husarion-webui.start
 

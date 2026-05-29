@@ -46,7 +46,7 @@ ros2 launch rosbot_navigation bringup.launch.py robot_model:=<rosbot/rosbot_xl>
 
 2. **Robot Configuration**
 
-    The demo assumes that the `/scan` topic (`LaserScan` message type) is available.
+    The demo assumes that the `scan` topic (`LaserScan` message type) is available.
 
 3. **Just**
 
@@ -58,13 +58,22 @@ ros2 launch rosbot_navigation bringup.launch.py robot_model:=<rosbot/rosbot_xl>
 
 4. **DDS**
 
-    The default configuration starts [FastDDS - UDP](demo/dds-config-udp.xml) configuration. All snap should share the same DDS configuration.
+    The default configuration starts [FastDDS - UDP](docker/dds-config-udp.xml) configuration. All snap should share the same DDS configuration.
 
 ### 🧭 Navigation
 
 #### Step 1: Environment configuration
 
-Setup environment variable in `demo/.env`.
+Setup environment variable in `docker/.env`.
+
+In simulation, Nav2 needs a lidar publishing the `scan` topic, so pick a `CONFIGURATION` that includes one:
+
+| `ROBOT_MODEL` | Configurations with a lidar                      |
+| ------------- | ------------------------------------------------ |
+| `rosbot`      | `basic`                                          |
+| `rosbot_xl`   | `autonomy`, `manipulation`, `manipulation_pro`   |
+
+On `rosbot_xl`, `basic` and `telepresence` have no lidar and will not work with Nav2.
 
 #### Step 2: Run navigation
 
@@ -99,11 +108,12 @@ just start-simulation
 
 | Argument         | Description <br/> ***Type:*** `Default`                                                               |
 | ---------------- | ----------------------------------------------------------------------------------------------------- |
-| `controller`     | Nav2 controller type. <br/> ***string*** `mppi` (choices: `dwb`, `rpp`, `rpp`)                        |
+| `common_params_file` | Path to the common nav2 parameters file (merged with `params_file`). <br/> ***string:*** [`nav2_common.yaml`](./rosbot_navigation/config/nav2_common.yaml) |
+| `controller`     | Nav2 controller type. <br/> ***string*** `mppi` (choices: `dwb`, `mppi`, `rpp`)                        |
 | `log_level`      | Logging level. <br/> ***string*** `info` (choices: `debug`, `info`, `warning`, `error`)               |
 | `map`            | Path to map yaml file to load. <br/> ***string:*** `/maps/map.yaml`                                   |
 | `namespace`      | Add namespace to all launched nodes. <br/> ***string:*** `env(ROBOT_NAMESPACE)`                       |
-| `params_file`    | Path to the nav2 parameters file. <br/> ***string:*** [`nav2_params.yaml](./rosbot_navigation/config/nav2_params.yaml) |
-| `robot_model`    | Specify robot model. <br/> ***string:*** `env(ROBOT_MODEL_NAME)` (choices: `rosbot`, `rosbot_xl`)     |
-| `slam`           | Whether run a SLAM. <br/> ***bool:*** `False`                                                         |
+| `params_file`    | Path to the controller-specific nav2 parameters file. <br/> ***string:*** [`nav2_<controller>.yaml`](./rosbot_navigation/config/) |
+| `robot_model`    | Specify robot model. <br/> ***string:*** `env(ROBOT_MODEL)` (choices: `rosbot`, `rosbot_xl`)          |
+| `slam`           | Whether run a SLAM. <br/> ***bool:*** `True`                                                          |
 | `use_sim_time`   | Use simulation (Gazebo) clock if true. <br/> ***bool:*** `False`                                      |

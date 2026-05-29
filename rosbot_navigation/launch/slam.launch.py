@@ -16,10 +16,9 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription
-from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.actions import DeclareLaunchArgument, GroupAction
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node, SetParameter, SetRemap
+from launch_ros.actions import LifecycleNode, Node, SetParameter, SetRemap
 from launch_ros.descriptions import ParameterFile
 from nav2_common.launch import RewrittenYaml
 
@@ -32,12 +31,10 @@ def generate_launch_description():
     log_level = LaunchConfiguration("log_level")
 
     # Variables
-    lifecycle_nodes = ["map_saver"]
+    lifecycle_nodes = ["slam_toolbox", "map_saver"]
 
     # Getting directories and launch-files
     bringup_dir = get_package_share_directory("nav2_bringup")
-    slam_toolbox_dir = get_package_share_directory("slam_toolbox")
-    slam_launch_file = os.path.join(slam_toolbox_dir, "launch", "online_sync_launch.py")
 
     # Create our own temporary YAML files that include substitutions
     configured_params = ParameterFile(
@@ -94,6 +91,9 @@ def generate_launch_description():
         ]
     )
 
+    # slam_toolbox inlined (instead of including online_sync_launch.py) so it gets
+    # params via RewrittenYaml(root_key=namespace) — the YAML key stays a plain
+    # 'slam_toolbox:'. use_lifecycle_manager lets lifecycle_manager_slam drive it.
     slam_toolbox = GroupAction(
         actions=[
             # Remapping required to have a slam session subscribe & publish in optional namespaces
@@ -101,13 +101,18 @@ def generate_launch_description():
             SetRemap(src="/tf", dst="tf"),
             SetRemap(src="/tf_static", dst="tf_static"),
             SetRemap(src="/map", dst="map"),
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource(slam_launch_file),
-                launch_arguments={
-                    "use_sim_time": use_sim_time,
-                    "slam_params_file": params_file,
-                }.items(),
-            ),
+            LifecycleNode(
+                package="slam_toolbox",
+                executable="sync_slam_toolbox_node",
+                name="slam_toolbox",
+                namespace="",
+                output="screen",
+                parameters=[
+                    configured_params,
+                    {"use_sim_time": use_sim_time, "use_lifecycle_manager": True},
+                ],
+                arguments=["--ros-args", "--log-level", log_level],
+            ),  # namespace="" inherits the pushed ROS namespace (like map_saver)
         ]
     )
 
