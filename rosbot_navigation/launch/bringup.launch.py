@@ -64,8 +64,8 @@ def generate_launch_description():
     # Box around the robot body whose laser returns (self-reflections) are removed.
     # Larger than the footprint to also cover antenna/sensors and lidar uncertainty.
     laser_filter_box = {
-        "rosbot": {"min_x": -0.17, "max_x": 0.10, "min_y": -0.12, "max_y": 0.12, "max_z": 0.2},
-        "rosbot_xl": {"min_x": -0.245, "max_x": 0.165, "min_y": -0.145, "max_y": 0.145, "max_z": 0.3},
+        "rosbot": {"min_x": -0.17, "min_y": -0.12, "max_x": 0.10, "max_y": 0.12, "max_z": 0.2},
+        "rosbot_xl": {"min_x": -0.25, "min_y": -0.15, "max_x": 0.17, "max_y": 0.15, "max_z": 0.3},
     }
 
     def prepare_params_files(context):
