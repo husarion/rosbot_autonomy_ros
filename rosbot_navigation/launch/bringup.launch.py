@@ -57,18 +57,8 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time")
 
     robot_footprint = {
-        "rosbot": {
-            "min_x": -0.10,
-            "min_y": -0.12,
-            "max_x": 0.10,
-            "max_y": 0.12,
-        },
-        "rosbot_xl": {
-            "min_x": -0.17,
-            "min_y": -0.16,
-            "max_x": 0.17,
-            "max_y": 0.16,
-        },
+        "rosbot": {"min_x": -0.10, "min_y": -0.12, "max_x": 0.10, "max_y": 0.12},
+        "rosbot_xl": {"min_x": -0.17, "min_y": -0.16, "max_x": 0.17, "max_y": 0.16},
     }
 
     # Box around the robot body whose laser returns (self-reflections) are removed.
@@ -118,81 +108,62 @@ def generate_launch_description():
 
     prepare_params_action = OpaqueFunction(function=prepare_params_files)
 
-    configured_params = ParameterFile(
-        RewrittenYaml(
-            source_file=params_file,
-            root_key=namespace,
-            param_rewrites={},
-            convert_types=True,
-        ),
-        allow_substs=True,
-    )
+    def configured(source_file):
+        return ParameterFile(
+            RewrittenYaml(
+                source_file=source_file, root_key=namespace, param_rewrites={}, convert_types=True
+            ),
+            allow_substs=True,
+        )
 
-    configured_laser_filter_params = ParameterFile(
-        RewrittenYaml(
-            source_file=LaunchConfiguration("laser_filter_params_file"),
-            root_key=namespace,
-            param_rewrites={},
-            convert_types=True,
-        ),
-        allow_substs=True,
-    )
-
-    declare_controller_arg = DeclareLaunchArgument(
-        "controller",
-        default_value="mppi",
-        description="Nav2 controller type",
-        choices=["dwb", "mppi", "rpp"],
-    )
-
-    declare_log_level_arg = DeclareLaunchArgument(
-        "log_level",
-        default_value="info",
-        description="Logging level",
-        choices=["debug", "info", "warning", "error"],
-    )
-
-    declare_map_arg = DeclareLaunchArgument(
-        "map", default_value="", description="Full path to map yaml file to load"
-    )
-
-    declare_namespace_arg = DeclareLaunchArgument(
-        "namespace",
-        default_value=EnvironmentVariable("ROBOT_NAMESPACE", default_value=""),
-        description="Add namespace to all launched nodes",
-    )
+    configured_params = configured(params_file)
+    configured_laser_filter_params = configured(LaunchConfiguration("laser_filter_params_file"))
 
     params_filename = PythonExpression(["'nav2_' + '", controller, "' + '.yaml'"])
-    declare_params_file_arg = DeclareLaunchArgument(
-        "params_file",
-        default_value=PathJoinSubstitution([rosbot_navigation, "config", params_filename]),
-        description="Path to the controller-specific nav2 parameters file",
-    )
-
-    declare_common_params_file_arg = DeclareLaunchArgument(
-        "common_params_file",
-        default_value=PathJoinSubstitution(
-            [rosbot_navigation, "config", "nav2_common.yaml"]
+    declare_args = [
+        DeclareLaunchArgument(
+            "controller",
+            default_value="mppi",
+            description="Nav2 controller type",
+            choices=["dwb", "mppi", "rpp"],
         ),
-        description="Path to the common nav2 parameters file (shared across controllers)",
-    )
-
-    declare_robot_model_arg = DeclareLaunchArgument(
-        "robot_model",
-        default_value=EnvironmentVariable("ROBOT_MODEL", default_value=""),
-        description="Specify robot model",
-        choices=["rosbot", "rosbot_xl"],
-    )
-
-    declare_slam_arg = DeclareLaunchArgument(
-        "slam", default_value="True", description="Whether run a SLAM"
-    )
-
-    declare_use_sim_time_arg = DeclareLaunchArgument(
-        "use_sim_time",
-        default_value="false",
-        description="Use simulation (Gazebo) clock if true",
-    )
+        DeclareLaunchArgument(
+            "log_level",
+            default_value="info",
+            description="Logging level",
+            choices=["debug", "info", "warning", "error"],
+        ),
+        DeclareLaunchArgument(
+            "map", default_value="", description="Full path to map yaml file to load"
+        ),
+        DeclareLaunchArgument(
+            "namespace",
+            default_value=EnvironmentVariable("ROBOT_NAMESPACE", default_value=""),
+            description="Add namespace to all launched nodes",
+        ),
+        DeclareLaunchArgument(
+            "params_file",
+            default_value=PathJoinSubstitution([rosbot_navigation, "config", params_filename]),
+            description="Path to the controller-specific nav2 parameters file",
+        ),
+        DeclareLaunchArgument(
+            "common_params_file",
+            default_value=PathJoinSubstitution([rosbot_navigation, "config", "nav2_common.yaml"]),
+            description="Path to the common nav2 parameters file (shared across controllers)",
+        ),
+        DeclareLaunchArgument(
+            "robot_model",
+            default_value=EnvironmentVariable("ROBOT_MODEL", default_value=""),
+            description="Specify robot model",
+            choices=["rosbot", "rosbot_xl"],
+        ),
+        DeclareLaunchArgument("slam", default_value="True", description="Whether run a SLAM"),
+        DeclareLaunchArgument(
+            "use_sim_time",
+            default_value="false",
+            description="Use simulation (Gazebo) clock if true",
+        ),
+    ]
 
     # Specify the actions
     bringup_group = GroupAction(
@@ -253,7 +224,7 @@ def generate_launch_description():
                 name="map_autosaver",
                 package="rosbot_navigation",
                 executable="map_autosaver_node",
-                parameters=[{"autosave_period": 30.0}],
+                parameters=[configured_params],
                 arguments=["--ros-args", "--log-level", log_level],
                 output="screen",
             ),
@@ -262,15 +233,7 @@ def generate_launch_description():
 
     actions = [
         SetEnvironmentVariable("RCUTILS_LOGGING_BUFFERED_STREAM", "1"),
-        declare_controller_arg,
-        declare_log_level_arg,
-        declare_map_arg,
-        declare_namespace_arg,
-        declare_robot_model_arg,
-        declare_params_file_arg,
-        declare_common_params_file_arg,
-        declare_slam_arg,
-        declare_use_sim_time_arg,
+        *declare_args,
         prepare_params_action,
         PushROSNamespace(namespace),
         SetParameter(name="use_sim_time", value=use_sim_time),
