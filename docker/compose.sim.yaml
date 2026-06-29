@@ -22,7 +22,7 @@ x-cpu-config:
 services:
 
   rosbot_gazebo:
-    image: husarion/rosbot-gazebo:jazzy-1.0.0-20260528
+    image: husarion/rosbot-gazebo:jazzy-1.1.1-20260629
     <<: [*gpu-config, *common-config]
     volumes:
       - ./dds-config-udp.xml:/udp_profile.xml:ro
