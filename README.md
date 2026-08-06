@@ -2,148 +2,118 @@
 
 Autonomous navigation & mapping for ROSbot 2R / 2 PRO with a web user interface powered by Foxglove. Works over the Internet thanks to Husarnet VPN
 
-![autonomy-result](https://github-readme-figures.s3.eu-central-1.amazonaws.com/rosbot/rosbot-autonomy/autonomy-result-foxglove.gif)
+![autonomy-result](https://github-readme-figures.s3.eu-central-1.amazonaws.com/rosbot/rosbot-autonomy/rosbot-autonomy.webp)
 
-> [!NOTE]
-> There are two setups on two separate branchers available
-> | branch name | description |
-> | - | - |
-> | [**ros2router**](https://github.com/husarion/rosbot-autonomy/) | Running ROS 2 containers on ROSbot and on PC with the interface in RViz |
-> | [**foxglove**](https://github.com/husarion/rosbot-autonomy/tree/foxglove) | Running ROS 2 containers only on ROSbot with a web user interface powered by Foxglove |
+## 🛠️ Setup Repository
 
-## Quick start (Physical ROSbot)
-
-> [!NOTE]
-> To simplify the execution of this project, we are utilizing [just](https://github.com/casey/just).
->
-> Install it with:
->
-> ```bash
-> curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | sudo bash -s -- --to /usr/bin
-> ```
-
-To see all available commands just run `just`:
+### Create Workspace
 
 ```bash
-husarion@rosbot2r:~/rosbot-autonomy$ just
-Available recipes:
-    connect-husarnet joincode hostname # connect to Husarnet VPN network
-    flash-firmware     # flash the proper firmware for STM32 microcontroller in ROSbot 2R / 2 PRO
-    start-rosbot       # start ROSbot 2R / 2 PRO autonomy containers
-    start-gazebo-sim   # start the Gazebo simulation
-    start-webots-sim   # start the Webots simulation
-    restart-navigation # Restart the Nav2 container
-    sync hostname password="husarion" # Copy repo content to remote host with 'rsync' and watch for changes
+mkdir rosbot_autonomy_ws
+cd rosbot_autonomy_ws
+git clone -b jazzy https://github.com/husarion/rosbot_autonomy_ros.git src/rosbot_autonomy_ros
 ```
 
-### 🌎 Step 1: Connecting ROSbot and Laptop over VPN
-
-Ensure that both ROSbot 2R (or ROSbot 2 PRO) and your laptop are linked to the same Husarnet VPN network. If they are not follow these steps:
-
-1. Setup a free account at [app.husarnet.com](https://app.husarnet.com/), create a new Husarnet network, click the **[Add element]** button and copy the code from the **Join Code** tab.
-2. Run in the linux terminal on your PC:
-
-   ```bash
-   cd rosbot-autonomy/ # remember to run all "just" commands in the repo root folder
-   export JOINCODE=<PASTE_YOUR_JOIN_CODE_HERE>
-   just connect-husarnet $JOINCODE my-laptop
-   ```
-
-3. Run in the linux terminal of your ROSbot:
-
-   ```bash
-   export JOINCODE=<PASTE_YOUR_JOIN_CODE_HERE>
-   sudo husarnet join $JOINCODE rosbot2r
-   ```
-
-   > note that `rosbot2r` is a default ROSbot hostname used in this project
-
-### 📡 Step 2: Sync
-
-This repository contains the Docker Compose setup for ROSbot 2R and 2 PRO. You can clone it to both PC and ROSbot, or use the `just sync` script to clone it to your PC and keep it synchronized with the robot
+### Build
 
 ```bash
-just sync rosbot2r
+sudo rosdep init
+rosdep update --rosdistro $ROS_DISTRO
+rosdep install --from-paths src -y -i
+
+source /opt/ros/$ROS_DISTRO/setup.bash
+colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+```
+
+### Run
+
+```bash
+source install/setup.bash
+ros2 launch rosbot_navigation bringup.launch.py robot_model:=<rosbot/rosbot_xl>
 ```
 
 > [!NOTE]
-> This `just sync` script locks the terminal and synchronizes online all changes made locally on the robot. `rosbot2r` is the name of device set in Husarnet.
+> Additional arguments are detailed in the [Launch Arguments](#launch-arguments) section.
+> MPPI controller is not compatible with **ROSbot 2 PRO**. Please use DWB or RPP controller.
 
-### 🔧 Step 3: Verifying User Configuration
+## 🚀 Demo
 
-To ensure proper user configuration, review the content of the `.env` file and select the appropriate configuration (the default options should be suitable).
+### 📋 Requirements
 
-- **`LIDAR_BAUDRATE`** - depend on mounted LiDAR,
-- **`MECANUM`** - wheel type,
-- **`SLAM`** - choose between mapping and localization modes,
-- **`SAVE_MAP_PERIOD`** - period of time for autosave map (set `0` to disable),
-- **`CONTROLLER`** - choose the navigation controller type,
+1. **ROSbot Platform & ROS Driver**
 
-### 🤖 Step 4: Running Navigation & Mapping
+    This demo is prepared for the **ROSbot Series** (ROSbot XL, ROSbot 3 / 3 PRO, ROSbot 2R / 2 PRO). This version is prepared to work with [rosbot](https://snapcraft.io/rosbot) ROS driver snap. To install snap follow the information in snapcraft.
 
-1. Connect to the ROSbot.
+2. **Robot Configuration**
 
-   ```bash
-   ssh husarion@rosbot2r
-   cd rosbot-autonomy
-   ```
+    The demo assumes that the `scan` topic (`LaserScan` message type) is available.
 
-> [!NOTE]
-> `rosbot2r` is the name of device set in Husarnet.
+3. **Just**
 
-2. Flashing the ROSbot's firmware.
+    To simplify running commands, we use [just](https://github.com/casey/just). Install it with:
 
-   To flash the Micro-ROS based firmware for STM32F4 microcontroller responsible for low-level functionalities of ROSbot 2, 2R and 2 PRO, execute in the ROSbot's shell:
+    ```bash
+    sudo snap install just
+    ```
 
-   ```bash
-   just flash-firmware
-   ```
+4. **DDS**
 
-3. Running autonomy on ROSbot.
+    The default configuration starts [FastDDS - UDP](docker/dds-config-udp.xml) configuration. All snap should share the same DDS configuration.
 
-   ```bash
-   just start-rosbot
-   ```
+### 🧭 Navigation
 
-### 🚗 Step 5: Control the ROSbot from a Web Browser
+#### Step 1: Environment configuration
 
-Open the **Google Chrome** browser on your laptop and navigate to:
+Setup environment variable in `docker/.env`.
 
-http://rosbot2r:8080/ui
+In simulation, Nav2 needs a lidar publishing the `scan` topic, so pick a `CONFIGURATION` that includes one:
 
-> [!NOTE]
-> `rosbot2r` is the name of device set in Husarnet.
+| `ROBOT_MODEL` | Configurations with a lidar                      |
+| ------------- | ------------------------------------------------ |
+| `rosbot`      | `basic`                                          |
+| `rosbot_xl`   | `autonomy`, `manipulation`, `manipulation_pro`   |
 
----
+On `rosbot_xl`, `basic` and `telepresence` have no lidar and will not work with Nav2.
 
-## Simulation
+#### Step 2: Run navigation
 
-> [!IMPORTANT]
-> To run `Gazebo` or `Webots` Simulators you have to use computer with NVIDIA GPU and the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) installed.
+Run navigation on the **physical robot**:
 
-If you don't have a physical ROSbot 2R / 2 PRO you can run this project in a simulation environment.
+```bash
+just start-navigation
+```
 
-### Gazebo
+Run navigation in **Gazebo simulation**:
 
-1. To start Gazebo simulation run:
+```bash
+just start-simulation
+```
 
-   ```bash
-   just start-gazebo-sim
-   ```
+#### Step 3: Control the robot from a Web Browser
 
-2. Then open the **Google Chrome** browser on your laptop and navigate to: http://localhost:8080/ui
+1. Install and run husarion-webui
 
-### Webots
+    ```bash
+    just start-visualization
+    ```
 
-1. To start Webots simulation run:
+2. Open the your browser on your laptop and navigate to:
 
-   ```bash
-   just start-webots-sim
-   ```
+    - http://{ip_address}:8080/ui (devices in the same LAN)
+    - http://{hostname}:8080/ui (devices in the same Husarnet Network)
 
-2. Then open the **Google Chrome** browser on your laptop and navigate to: http://localhost:8080/ui
+## Documentation
 
----
+### Launch Arguments
 
-> [!NOTE]
-> Due to efficiency and official manufacturer support, it is recommended to use `foxglove-websocket`. When using `rosbridge-websocket`, it is necessary to edit `Custom Layers` to visualize the robot mesh.
+| Argument         | Description <br/> ***Type:*** `Default`                                                               |
+| ---------------- | ----------------------------------------------------------------------------------------------------- |
+| `common_params_file` | Path to the common nav2 parameters file (merged with `params_file`). <br/> ***string:*** [`nav2_common.yaml`](./rosbot_navigation/config/nav2_common.yaml) |
+| `controller`     | Nav2 controller type. <br/> ***string*** `mppi` (choices: `dwb`, `mppi`, `rpp`)                        |
+| `log_level`      | Logging level. <br/> ***string*** `info` (choices: `debug`, `info`, `warning`, `error`)               |
+| `map`            | Path to map yaml file to load. <br/> ***string:*** `/maps/map.yaml`                                   |
+| `namespace`      | Add namespace to all launched nodes. <br/> ***string:*** `env(ROBOT_NAMESPACE)`                       |
+| `params_file`    | Path to the controller-specific nav2 parameters file. <br/> ***string:*** [`nav2_<controller>.yaml`](./rosbot_navigation/config/) |
+| `robot_model`    | Specify robot model. <br/> ***string:*** `env(ROBOT_MODEL)` (choices: `rosbot`, `rosbot_xl`)          |
+| `slam`           | Whether run a SLAM. <br/> ***bool:*** `True`                                                          |
+| `use_sim_time`   | Use simulation (Gazebo) clock if true. <br/> ***bool:*** `False`                                      |

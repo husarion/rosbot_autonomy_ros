@@ -12,12 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import tempfile
+
+import yaml
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     GroupAction,
     IncludeLaunchDescription,
+    OpaqueFunction,
     SetEnvironmentVariable,
+    SetLaunchConfiguration,
 )
 from launch.conditions import IfCondition, UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
@@ -30,7 +36,7 @@ from launch.substitutions import (
 from launch_ros.actions import Node, PushROSNamespace, SetParameter, SetRemap
 from launch_ros.descriptions import ParameterFile
 from launch_ros.substitutions import FindPackageShare
-from nav2_common.launch import ReplaceString, RewrittenYaml
+from nav2_common.launch import RewrittenYaml
 
 
 def generate_launch_description():
@@ -40,118 +46,137 @@ def generate_launch_description():
     launch_dir = PathJoinSubstitution([bringup_dir, "launch"])
 
     # Launch configuration variables
+    common_params_file = LaunchConfiguration("common_params_file")
     controller = LaunchConfiguration("controller")
     log_level = LaunchConfiguration("log_level")
-    map = LaunchConfiguration("map")
+    map_path = LaunchConfiguration("map")
     namespace = LaunchConfiguration("namespace")
     params_file = LaunchConfiguration("params_file")
     robot_model = LaunchConfiguration("robot_model")
     slam = LaunchConfiguration("slam")
     use_sim_time = LaunchConfiguration("use_sim_time")
 
-    namespace_ext = PythonExpression(["'", namespace, "' + '/' if '", namespace, "' else ''"])
-
-    footprint_padding = 0.01  # increase slightly footprint for safety
     robot_footprint = {
-        "rosbot": {
-            "min_x": -0.10 - footprint_padding,
-            "min_y": -0.12 - footprint_padding,
-            "max_x": 0.10 + footprint_padding,
-            "max_y": 0.12 + footprint_padding,
-        },
-        "rosbot_xl": {
-            "min_x": -0.17 - footprint_padding,
-            "min_y": -0.17 - footprint_padding,
-            "max_x": 0.17 + footprint_padding,
-            "max_y": 0.17 + footprint_padding,
-        },
+        "rosbot": {"min_x": -0.10, "min_y": -0.12, "max_x": 0.10, "max_y": 0.12},
+        "rosbot_xl": {"min_x": -0.17, "min_y": -0.16, "max_x": 0.17, "max_y": 0.16},
     }
 
-    def override_params_file(robot_model_name):
-        footprint = robot_footprint[robot_model_name]
-        params = ReplaceString(
-            source_file=params_file,
-            replacements={
-                "<namespace>/": namespace_ext,
-                "<min_x>": str(footprint["min_x"]),
-                "<max_x>": str(footprint["max_x"]),
-                "<min_y>": str(footprint["min_y"]),
-                "<max_y>": str(footprint["max_y"]),
-            },
-            condition=IfCondition(
-                PythonExpression(["'", robot_model, f"' == '{robot_model_name}'"])
+    # Box around the robot body whose laser returns (self-reflections) are removed.
+    # Larger than the footprint to also cover antenna/sensors and lidar uncertainty.
+    laser_filter_box = {
+        "rosbot": {"min_x": -0.17, "min_y": -0.12, "max_x": 0.10, "max_y": 0.12, "max_z": 0.2},
+        "rosbot_xl": {"min_x": -0.25, "min_y": -0.15, "max_x": 0.17, "max_y": 0.15, "max_z": 0.3},
+    }
+
+    def prepare_params_files(context):
+        ns = namespace.perform(context)
+        model = robot_model.perform(context)
+        share = rosbot_navigation.perform(context)
+
+        def substitute(text):
+            text = text.replace("<namespace>/", (ns + "/") if ns else "")
+            if model in robot_footprint:
+                fp = robot_footprint[model]
+                for key in ("min_x", "max_x", "min_y", "max_y"):
+                    text = text.replace(f"<{key}>", str(fp[key]))
+            return text
+
+        # Common base + controller file merged into one file. They are disjoint at the
+        # top level (common = everything but controller_server; controller file =
+        # controller_server only), so a shallow merge suffices. One merged file is
+        # required: two separate ParameterFiles would drop nested/list params.
+        common = yaml.safe_load(substitute(open(common_params_file.perform(context)).read()))
+        controller = yaml.safe_load(substitute(open(params_file.perform(context)).read()))
+        merged = {**common, **controller}
+
+        laser = open(os.path.join(share, "config", "laser_filter.yaml")).read()
+        if model in laser_filter_box:
+            for key, value in laser_filter_box[model].items():
+                laser = laser.replace(f"<lf_{key}>", str(value))
+
+        fd, merged_path = tempfile.mkstemp(prefix="nav2_merged_", suffix=".yaml")
+        with os.fdopen(fd, "w") as f:
+            yaml.safe_dump(merged, f)
+        fd, laser_path = tempfile.mkstemp(prefix="laser_filter_", suffix=".yaml")
+        with os.fdopen(fd, "w") as f:
+            f.write(laser)
+
+        return [
+            SetLaunchConfiguration("params_file", merged_path),
+            SetLaunchConfiguration("laser_filter_params_file", laser_path),
+        ]
+
+    prepare_params_action = OpaqueFunction(function=prepare_params_files)
+
+    def configured(source_file):
+        return ParameterFile(
+            RewrittenYaml(
+                source_file=source_file, root_key=namespace, param_rewrites={}, convert_types=True
             ),
+            allow_substs=True,
         )
 
-        return params
+    configured_params = configured(params_file)
+    configured_laser_filter_params = configured(LaunchConfiguration("laser_filter_params_file"))
 
-    params_file = override_params_file("rosbot")
-    params_file = override_params_file("rosbot_xl")
-
-    configured_params = ParameterFile(
-        RewrittenYaml(
-            source_file=params_file,
-            root_key=namespace,
-            param_rewrites={},
-            convert_types=True,
+    params_filename = PythonExpression(["'nav2_' + '", controller, "' + '.yaml'"])
+    declare_args = [
+        DeclareLaunchArgument(
+            "controller",
+            default_value="mppi",
+            description="Nav2 controller type",
+            choices=["dwb", "mppi", "rpp"],
         ),
-        allow_substs=True,
-    )
-
-    stdout_linebuf_envvar = SetEnvironmentVariable("RCUTILS_LOGGING_BUFFERED_STREAM", "1")
-
-    declare_controller_arg = DeclareLaunchArgument(
-        "controller",
-        default_value="mppi",
-        description="Nav2 controller type",
-        choices=["dwb", "mppi", "rpp"],
-    )
-
-    declare_log_level_arg = DeclareLaunchArgument(
-        "log_level",
-        default_value="info",
-        description="Logging level",
-        choices=["debug", "info", "warning", "error"],
-    )
-
-    declare_map_arg = DeclareLaunchArgument(
-        "map", default_value="", description="Full path to map yaml file to load"
-    )
-
-    declare_namespace_arg = DeclareLaunchArgument(
-        "namespace",
-        default_value=EnvironmentVariable("ROBOT_NAMESPACE", default_value=""),
-        description="Add namespace to all launched nodes.",
-    )
-
-    params_filename = PythonExpression(["'nav2_' + '", controller, "' + '_params.yaml'"])
-    declare_params_file_arg = DeclareLaunchArgument(
-        "params_file",
-        default_value=PathJoinSubstitution([rosbot_navigation, "config", params_filename]),
-        description="Full path to the ROS2 parameters file to use for all launched nodes",
-    )
-
-    declare_robot_model_arg = DeclareLaunchArgument(
-        "robot_model",
-        default_value=EnvironmentVariable("ROBOT_MODEL_NAME", default_value=""),
-        description="Specify robot model",
-        choices=["rosbot", "rosbot_xl"],
-    )
-
-    declare_slam_arg = DeclareLaunchArgument(
-        "slam", default_value="True", description="Whether run a SLAM"
-    )
-
-    declare_use_sim_time_arg = DeclareLaunchArgument(
-        "use_sim_time",
-        default_value="false",
-        description="Use simulation (Gazebo) clock if true",
-    )
+        DeclareLaunchArgument(
+            "log_level",
+            default_value="info",
+            description="Logging level",
+            choices=["debug", "info", "warning", "error"],
+        ),
+        DeclareLaunchArgument(
+            "map", default_value="", description="Full path to map yaml file to load"
+        ),
+        DeclareLaunchArgument(
+            "namespace",
+            default_value=EnvironmentVariable("ROBOT_NAMESPACE", default_value=""),
+            description="Add namespace to all launched nodes",
+        ),
+        DeclareLaunchArgument(
+            "params_file",
+            default_value=PathJoinSubstitution([rosbot_navigation, "config", params_filename]),
+            description="Path to the controller-specific nav2 parameters file",
+        ),
+        DeclareLaunchArgument(
+            "common_params_file",
+            default_value=PathJoinSubstitution([rosbot_navigation, "config", "nav2_common.yaml"]),
+            description="Path to the common nav2 parameters file (shared across controllers)",
+        ),
+        DeclareLaunchArgument(
+            "robot_model",
+            default_value=EnvironmentVariable("ROBOT_MODEL", default_value=""),
+            description="Specify robot model",
+            choices=["rosbot", "rosbot_xl"],
+        ),
+        DeclareLaunchArgument("slam", default_value="True", description="Whether run a SLAM"),
+        DeclareLaunchArgument(
+            "use_sim_time",
+            default_value="false",
+            description="Use simulation (Gazebo) clock if true",
+        ),
+    ]
 
     # Specify the actions
     bringup_group = GroupAction(
         [
-            PushROSNamespace(namespace=namespace),
+            Node(
+                name="laser_filter",
+                namespace="",
+                package="laser_filters",
+                executable="scan_to_scan_filter_chain",
+                parameters=[configured_laser_filter_params],
+                arguments=["--ros-args", "--log-level", log_level],
+                output="screen",
+            ),
             Node(
                 name="nav2_container",
                 package="rclcpp_components",
@@ -162,12 +187,11 @@ def generate_launch_description():
             ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
-                    PathJoinSubstitution([launch_dir, "slam_launch.py"])
+                    PathJoinSubstitution([rosbot_navigation, "launch", "slam.launch.py"])
                 ),
                 condition=IfCondition(slam),
                 launch_arguments={
                     "namespace": namespace,
-                    "autostart": "True",
                     "params_file": params_file,
                 }.items(),
             ),
@@ -177,12 +201,11 @@ def generate_launch_description():
                 ),
                 condition=UnlessCondition(slam),
                 launch_arguments={
+                    "container_name": "nav2_container",
+                    "map": map_path,
                     "namespace": namespace,
-                    "map": map,
-                    "autostart": "True",
                     "params_file": params_file,
                     "use_composition": "True",
-                    "container_name": "nav2_container",
                 }.items(),
             ),
             IncludeLaunchDescription(
@@ -190,9 +213,10 @@ def generate_launch_description():
                     PathJoinSubstitution([rosbot_navigation, "launch", "navigation.launch.py"])
                 ),
                 launch_arguments={
+                    "container_name": "nav2_container",
                     "namespace": namespace,
                     "params_file": params_file,
-                    "container_name": "nav2_container",
+                    "use_composition": "True",
                 }.items(),
             ),
             Node(
@@ -207,24 +231,10 @@ def generate_launch_description():
         ]
     )
 
-    # Create the launch description and populate
-    ld = LaunchDescription()
-
-    # Set environment variables
-    ld.add_action(stdout_linebuf_envvar)
-
-    # Add the actions to launch all of the navigation nodes
-    ld.add_action(bringup_group)
-
     actions = [
-        declare_controller_arg,
-        declare_log_level_arg,
-        declare_map_arg,
-        declare_namespace_arg,
-        declare_robot_model_arg,
-        declare_params_file_arg,
-        declare_slam_arg,
-        declare_use_sim_time_arg,
+        SetEnvironmentVariable("RCUTILS_LOGGING_BUFFERED_STREAM", "1"),
+        *declare_args,
+        prepare_params_action,
         PushROSNamespace(namespace),
         SetParameter(name="use_sim_time", value=use_sim_time),
         SetRemap("/diagnostics", "diagnostics"),

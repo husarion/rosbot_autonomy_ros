@@ -59,7 +59,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - dockerfile: ./docker/Dockerfile.hardware
+          - dockerfile: ./docker/Dockerfile
             platforms: linux/amd64, linux/arm64
             repo_name: rosbot-autonomy
             ros_distro: jazzy
