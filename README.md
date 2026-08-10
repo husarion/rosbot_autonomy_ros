@@ -106,6 +106,42 @@ just start-simulation
 
 ## Documentation
 
+### Startup checks
+
+Nav2 starts happily against a half-configured robot and then simply does nothing — a
+missing lidar, a missing transform to the laser frame and a driver that is not running
+all look identical from the outside. `autonomy_preflight` runs first and names the
+problem:
+
+```
+autonomy preflight — namespace (none), timeout 20 s
+
+  [ok  ] driver TF      odom -> base_link is available
+  [ok  ] odometry       /odometry/filtered is publishing
+  [ok  ] velocity sink  the driver listens on /autonomous/cmd_vel
+  [ok  ] lidar          /scan is publishing (frame_id 'laser')
+  [FAIL] laser TF       no transform base_link -> laser
+
+--- laser TF ---
+The scan is published in frame 'laser', but that frame is not in the robot's
+URDF, so nav2 cannot place the measurements. The robot configuration most
+likely has no lidar mounted.
+    sudo snap set rosbot driver.configuration=autonomy
+    sudo rosbot.restart
+```
+
+Nav2 is not started unless every check passes; the launch shuts down instead. Fix hints
+adapt to how the robot is installed (snap commands vs `ros2 launch`).
+
+Run it on its own against a live robot:
+
+```bash
+ros2 run rosbot_navigation autonomy_preflight --namespace my_robot
+```
+
+Disable the gate with `preflight:=False`, or give slow hardware more room with
+`preflight_timeout:=40.0`.
+
 ### Velocity command arbitration
 
 The driver arbitrates between velocity sources inside its control loop

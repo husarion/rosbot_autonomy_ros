@@ -1,0 +1,330 @@
+#!/usr/bin/env python3
+
+# Copyright 2026 Husarion sp. z o.o.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Check that the robot can actually be navigated, and say what to fix if not.
+
+Nav2 starts happily against a half-configured robot and then simply does nothing:
+no lidar, no transform to the laser frame and no driver all look identical from the
+outside. Run this first so the failure names itself.
+
+Exits 0 when every check passes, 1 otherwise.
+"""
+
+import argparse
+import os
+import sys
+import time
+
+import rclpy
+from geometry_msgs.msg import TwistStamped
+from nav_msgs.msg import Odometry
+from rclpy.node import Node
+from rclpy.qos import qos_profile_sensor_data
+from rclpy.utilities import remove_ros_args
+from rosgraph_msgs.msg import Clock
+from sensor_msgs.msg import LaserScan
+from tf2_ros import Buffer, TransformListener
+
+BASE_FRAME = "base_link"
+ODOM_FRAME = "odom"
+
+# MPPI's rollout loop needs vector instructions this CPU does not have; on ROSbot 2 PRO
+# it starves the control loop instead of failing, so the robot creeps or stalls.
+MPPI_INCOMPATIBLE_CPU = "Intel(R) Atom(TM) x5-Z8350"
+
+
+class Check:
+    def __init__(self, name, ok, detail, fix=None):
+        self.name = name
+        self.ok = ok
+        self.detail = detail
+        self.fix = fix
+
+
+class Preflight(Node):
+    def __init__(self, namespace, scan_topic, cmd_vel_topic, timeout, use_sim_time):
+        super().__init__("autonomy_preflight", namespace=namespace)
+        self.timeout = timeout
+        self.use_sim_time_expected = use_sim_time
+        self.scan_topic = scan_topic
+        self.cmd_vel_topic = cmd_vel_topic
+
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+
+        self.scan = None
+        self.odom = None
+        self.clock_seen = False
+        self.create_subscription(LaserScan, scan_topic, self._on_scan, qos_profile_sensor_data)
+        self.create_subscription(Odometry, "odometry/filtered", self._on_odom, 10)
+        self.create_subscription(Clock, "/clock", self._on_clock, 10)
+
+    def _on_scan(self, msg):
+        self.scan = msg
+
+    def _on_odom(self, msg):
+        self.odom = msg
+
+    def _on_clock(self, _):
+        self.clock_seen = True
+
+    def _spin_until(self, predicate, deadline):
+        while time.monotonic() < deadline:
+            rclpy.spin_once(self, timeout_sec=0.1)
+            if predicate():
+                return True
+        return predicate()
+
+    # --- individual checks ---------------------------------------------------
+
+    def check_clock(self):
+        if not self.use_sim_time_expected:
+            return None
+        deadline = time.monotonic() + min(self.timeout, 5.0)
+        if self._spin_until(lambda: self.clock_seen, deadline):
+            return Check("sim clock", True, "/clock is publishing")
+        return Check(
+            "sim clock",
+            False,
+            "use_sim_time is set but nothing publishes /clock",
+            "Start the simulator, or launch with use_sim_time:=False on real hardware.\n"
+            "Without /clock every transform looks infinitely old and nav2 stays silent.",
+        )
+
+    def check_scan(self):
+        deadline = time.monotonic() + self.timeout
+        got = self._spin_until(lambda: self.scan is not None, deadline)
+        resolved = self.resolve_topic_name(self.scan_topic)
+
+        if got:
+            return Check(
+                "lidar", True, f"{resolved} is publishing (frame_id '{self.scan.header.frame_id}')"
+            )
+
+        if self.count_publishers(self.scan_topic) == 0:
+            return Check(
+                "lidar",
+                False,
+                f"nothing publishes {resolved}",
+                self._hint_no_scan_publisher(),
+            )
+
+        return Check(
+            "lidar",
+            False,
+            f"{resolved} is advertised but no message arrived in {self.timeout:.0f} s",
+            "The lidar driver is running but delivering nothing — check the sensor cable\n"
+            "and the driver's own log (`sudo snap logs husarion-rplidar -n 50`).",
+        )
+
+    def check_scan_transform(self):
+        # Without a scan there is no frame to look up, and the lidar check above already
+        # carries the actionable failure — a second empty one would only add noise.
+        if self.scan is None:
+            return None
+
+        frame = self.scan.header.frame_id
+        deadline = time.monotonic() + self.timeout
+        ok = self._spin_until(
+            lambda: self.tf_buffer.can_transform(BASE_FRAME, frame, rclpy.time.Time()), deadline
+        )
+        if ok:
+            return Check("laser TF", True, f"{BASE_FRAME} -> {frame} is available")
+
+        return Check(
+            "laser TF",
+            False,
+            f"no transform {BASE_FRAME} -> {frame}",
+            f"The scan is published in frame '{frame}', but that frame is not in the robot's\n"
+            f"URDF, so nav2 cannot place the measurements. The robot configuration most\n"
+            f"likely has no lidar mounted.\n" + self._hint_lidar_not_in_urdf(),
+        )
+
+    def check_odom_transform(self):
+        deadline = time.monotonic() + self.timeout
+        ok = self._spin_until(
+            lambda: self.tf_buffer.can_transform(ODOM_FRAME, BASE_FRAME, rclpy.time.Time()),
+            deadline,
+        )
+        if ok:
+            return Check("driver TF", True, f"{ODOM_FRAME} -> {BASE_FRAME} is available")
+        return Check(
+            "driver TF",
+            False,
+            f"no transform {ODOM_FRAME} -> {BASE_FRAME}",
+            "The driver (or its EKF) is not running, so the robot has no odometry.\n"
+            + self._hint_driver_down(),
+        )
+
+    def check_odometry(self):
+        deadline = time.monotonic() + min(self.timeout, 5.0)
+        if self._spin_until(lambda: self.odom is not None, deadline):
+            return Check(
+                "odometry", True, f"{self.resolve_topic_name('odometry/filtered')} is publishing"
+            )
+        return Check(
+            "odometry",
+            False,
+            f"nothing publishes {self.resolve_topic_name('odometry/filtered')}",
+            "The driver's EKF is not fusing wheel odometry and IMU.\n" + self._hint_driver_down(),
+        )
+
+    def check_cmd_vel_sink(self):
+        resolved = self.resolve_topic_name(self.cmd_vel_topic)
+        probe = self.create_publisher(TwistStamped, self.cmd_vel_topic, 1)
+        deadline = time.monotonic() + min(self.timeout, 5.0)
+        ok = self._spin_until(lambda: probe.get_subscription_count() > 0, deadline)
+        self.destroy_publisher(probe)
+
+        if ok:
+            return Check("velocity sink", True, f"the driver listens on {resolved}")
+        return Check(
+            "velocity sink",
+            False,
+            f"nobody subscribes to {resolved}",
+            "Velocity commands would go nowhere. The driver arbitrates sources with\n"
+            "twist_mux_controller — an older driver still listens on plain 'cmd_vel'.\n"
+            + self._hint_driver_down(),
+        )
+
+    def check_controller(self, controller):
+        if controller != "mppi":
+            return None
+        try:
+            cpuinfo = open("/proc/cpuinfo").read()
+        except OSError:
+            return None
+        if MPPI_INCOMPATIBLE_CPU not in cpuinfo:
+            return None
+        return Check(
+            "controller",
+            False,
+            f"the MPPI controller does not work on this CPU ({MPPI_INCOMPATIBLE_CPU})",
+            "Pick DWB or RPP instead:\n" + self._hint_controller(),
+        )
+
+    # --- fix hints, phrased for however this robot is installed --------------
+
+    @property
+    def in_snap(self):
+        return bool(os.environ.get("SNAP_NAME"))
+
+    def _hint_no_scan_publisher(self):
+        if self.in_snap:
+            return (
+                "Install and start the lidar:\n"
+                "    sudo snap install husarion-rplidar\n"
+                "    sudo husarion-rplidar.start\n"
+                "If it is already running, its ROS namespace must match this one — compare\n"
+                "`sudo snap get rosbot ros.namespace` with `sudo snap get husarion-rplidar "
+                "ros.namespace`."
+            )
+        return (
+            "Start a lidar driver publishing this topic, and make sure it shares this\n"
+            "ROS namespace and RMW configuration."
+        )
+
+    def _hint_lidar_not_in_urdf(self):
+        if self.in_snap:
+            return (
+                "    sudo snap set rosbot driver.configuration=autonomy\n"
+                "    sudo rosbot.restart\n"
+                "(ROSbot 2/3 uses driver.configuration=basic — it already includes a lidar.)"
+            )
+        return (
+            "Launch the driver with a configuration that mounts a lidar:\n"
+            "    rosbot_xl -> configuration:=autonomy | manipulation | manipulation_pro\n"
+            "    rosbot    -> configuration:=basic"
+        )
+
+    def _hint_driver_down(self):
+        if self.in_snap:
+            return "    sudo rosbot.start        # and check: sudo snap logs rosbot.daemon -n 50"
+        return "    ros2 launch rosbot_bringup rosbot_xl.yaml   # or rosbot.yaml"
+
+    def _hint_controller(self):
+        if self.in_snap:
+            return "    sudo snap set rosbot autonomy.controller=rpp"
+        return "    ros2 launch rosbot_navigation bringup.launch.py controller:=rpp ..."
+
+
+def report(checks, namespace, timeout):
+    ns = namespace or "(none)"
+    print(f"\nautonomy preflight — namespace {ns}, timeout {timeout:.0f} s\n")
+    for check in checks:
+        mark = "ok  " if check.ok else "FAIL"
+        print(f"  [{mark}] {check.name:14s} {check.detail}")
+
+    failed = [c for c in checks if not c.ok]
+    if not failed:
+        print("\nAll checks passed.\n")
+        return
+
+    print("")
+    for check in failed:
+        print(f"--- {check.name} ---")
+        if check.fix:
+            print(check.fix)
+        print("")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--namespace", default="", help="ROS namespace the robot runs in")
+    parser.add_argument("--scan-topic", default="scan", help="raw laser scan topic")
+    parser.add_argument(
+        "--cmd-vel-topic",
+        default="autonomous/cmd_vel",
+        help="topic nav2 will publish velocity commands to",
+    )
+    parser.add_argument("--controller", default="", help="nav2 controller that will be used")
+    parser.add_argument("--timeout", type=float, default=20.0, help="per-check timeout in seconds")
+    parser.add_argument(
+        "--use-sim-time", default="false", help="expect a simulator to publish /clock"
+    )
+    args = parser.parse_args(remove_ros_args(sys.argv)[1:])
+
+    rclpy.init(args=sys.argv)
+    node = Preflight(
+        namespace=args.namespace,
+        scan_topic=args.scan_topic,
+        cmd_vel_topic=args.cmd_vel_topic,
+        timeout=args.timeout,
+        use_sim_time=args.use_sim_time.lower() in ("true", "1", "yes"),
+    )
+
+    # Ordered cheapest-and-most-fundamental first: a dead driver explains every later
+    # failure, so reporting it first keeps the output from burying the real cause.
+    candidates = [
+        node.check_controller(args.controller),
+        node.check_clock(),
+        node.check_odom_transform(),
+        node.check_odometry(),
+        node.check_cmd_vel_sink(),
+        node.check_scan(),
+        node.check_scan_transform(),
+    ]
+    checks = [c for c in candidates if c is not None]
+
+    report(checks, args.namespace, args.timeout)
+
+    node.destroy_node()
+    rclpy.shutdown()
+    sys.exit(0 if all(c.ok for c in checks) else 1)
+
+
+if __name__ == "__main__":
+    main()

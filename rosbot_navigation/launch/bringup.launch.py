@@ -19,13 +19,18 @@ import yaml
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
+    EmitEvent,
     GroupAction,
     IncludeLaunchDescription,
+    LogInfo,
     OpaqueFunction,
+    RegisterEventHandler,
     SetEnvironmentVariable,
     SetLaunchConfiguration,
 )
 from launch.conditions import IfCondition, UnlessCondition
+from launch.event_handlers import OnProcessExit
+from launch.events import Shutdown
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import (
     EnvironmentVariable,
@@ -54,6 +59,8 @@ def generate_launch_description():
     map_save_path = LaunchConfiguration("map_save_path")
     namespace = LaunchConfiguration("namespace")
     params_file = LaunchConfiguration("params_file")
+    preflight = LaunchConfiguration("preflight")
+    preflight_timeout = LaunchConfiguration("preflight_timeout")
     robot_model = LaunchConfiguration("robot_model")
     slam = LaunchConfiguration("slam")
     use_sim_time = LaunchConfiguration("use_sim_time")
@@ -192,6 +199,17 @@ def generate_launch_description():
             description="Specify robot model",
             choices=["rosbot", "rosbot_xl"],
         ),
+        DeclareLaunchArgument(
+            "preflight",
+            default_value="True",
+            description="Check that the robot is navigable (lidar, transforms, driver) and "
+            "refuse to start nav2 if it is not",
+        ),
+        DeclareLaunchArgument(
+            "preflight_timeout",
+            default_value="20.0",
+            description="Seconds each preflight check waits before reporting a failure",
+        ),
         DeclareLaunchArgument("slam", default_value="True", description="Whether run a SLAM"),
         DeclareLaunchArgument(
             "use_sim_time",
@@ -199,6 +217,40 @@ def generate_launch_description():
             description="Use simulation (Gazebo) clock if true",
         ),
     ]
+
+    # Everything below runs inside the robot's namespace with the global TF topics
+    # remapped onto it. Scoped in a GroupAction (rather than pushed at launch top level)
+    # so the stack can be deferred behind the preflight gate without losing the scope.
+    def namespaced(*actions, condition=None):
+        return GroupAction(
+            [
+                PushROSNamespace(namespace),
+                SetParameter(name="use_sim_time", value=use_sim_time),
+                SetRemap("/diagnostics", "diagnostics"),
+                SetRemap("/tf", "tf"),
+                SetRemap("/tf_static", "tf_static"),
+                *actions,
+            ],
+            condition=condition,
+        )
+
+    preflight_node = Node(
+        name="autonomy_preflight",
+        namespace="",
+        package="rosbot_navigation",
+        executable="autonomy_preflight",
+        arguments=[
+            "--namespace",
+            namespace,
+            "--controller",
+            controller,
+            "--timeout",
+            preflight_timeout,
+            "--use-sim-time",
+            use_sim_time,
+        ],
+        output="screen",
+    )
 
     # Specify the actions
     bringup_group = GroupAction(
@@ -266,16 +318,34 @@ def generate_launch_description():
         ]
     )
 
+    def on_preflight_exit(event, _context):
+        if event.returncode == 0:
+            return [namespaced(bringup_group)]
+        return [
+            LogInfo(
+                msg="\nautonomy preflight failed — not starting nav2. "
+                "Fix the items above and try again.\n"
+            ),
+            EmitEvent(event=Shutdown(reason="autonomy preflight failed")),
+        ]
+
     actions = [
         SetEnvironmentVariable("RCUTILS_LOGGING_BUFFERED_STREAM", "1"),
         *declare_args,
         prepare_params_action,
-        PushROSNamespace(namespace),
-        SetParameter(name="use_sim_time", value=use_sim_time),
-        SetRemap("/diagnostics", "diagnostics"),
-        SetRemap("/tf", "tf"),
-        SetRemap("/tf_static", "tf_static"),
-        bringup_group,
+        # With the gate on, nav2 only starts once preflight reports the robot is
+        # navigable; otherwise the whole launch shuts down with a named reason instead
+        # of leaving a full nav2 stack spinning against a robot that cannot move.
+        GroupAction(
+            [
+                namespaced(preflight_node),
+                RegisterEventHandler(
+                    OnProcessExit(target_action=preflight_node, on_exit=on_preflight_exit)
+                ),
+            ],
+            condition=IfCondition(preflight),
+        ),
+        namespaced(bringup_group, condition=UnlessCondition(preflight)),
     ]
 
     return LaunchDescription(actions)

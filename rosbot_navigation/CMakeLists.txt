@@ -29,6 +29,7 @@ endforeach()
 install(TARGETS ${exec_nodes} DESTINATION lib/${PROJECT_NAME})
 
 # Rest of the files
+install(PROGRAMS scripts/autonomy_preflight DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY config launch layout DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY include DESTINATION include)
 
