@@ -340,7 +340,9 @@ collision_monitor:
     base_frame_id: base_link
     odom_frame_id: odom
     cmd_vel_in_topic: cmd_vel_smoothed
-    cmd_vel_out_topic: cmd_vel
+    # Priority-10 input of the driver's twist_mux_controller, so a held gamepad
+    # (priority 100) overrides navigation and releasing it hands control back.
+    cmd_vel_out_topic: autonomous/cmd_vel
     state_topic: collision_monitor_state
     transform_tolerance: 0.2
     source_timeout: 1.0

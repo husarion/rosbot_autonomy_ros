@@ -44,6 +44,8 @@ ros2 launch rosbot_navigation bringup.launch.py robot_model:=<rosbot/rosbot_xl>
 
     This demo is prepared for the **ROSbot Series** (ROSbot XL, ROSbot 3 / 3 PRO, ROSbot 2R / 2 PRO). This version is prepared to work with [rosbot](https://snapcraft.io/rosbot) ROS driver snap. To install snap follow the information in snapcraft.
 
+    The driver must run `twist_mux_controller` — Nav2 publishes to `autonomous/cmd_vel`, not `cmd_vel` (see [Velocity command arbitration](#velocity-command-arbitration)). On an older driver the robot will not move; override `collision_monitor.cmd_vel_out_topic` back to `cmd_vel` through `common_params_file` if you cannot update it.
+
 2. **Robot Configuration**
 
     The demo assumes that the `scan` topic (`LaserScan` message type) is available.
@@ -103,6 +105,22 @@ just start-simulation
     - http://{hostname}:8080/ui (devices in the same Husarnet Network)
 
 ## Documentation
+
+### Velocity command arbitration
+
+The driver arbitrates between velocity sources inside its control loop
+(`twist_mux_controller`), so navigation and a human operator can be connected at
+the same time:
+
+| Topic | Priority | Published by |
+| ----- | -------- | ------------ |
+| `manual/cmd_vel` | 100 | gamepad, keyboard teleop, the Foxglove joystick panel |
+| `autonomous/cmd_vel` | 10 | Nav2 (`collision_monitor` output) |
+| `cmd_vel` | 1 | anything else |
+
+The highest-priority source that published within the last 0.2 s wins. Grabbing
+the gamepad overrides navigation immediately, and letting go hands control back
+— no mode switch. `twist_mux_controller/source` reports who is driving.
 
 ### Launch Arguments
 
