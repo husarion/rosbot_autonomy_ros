@@ -47,14 +47,31 @@ def generate_launch_description():
 
     # Launch configuration variables
     common_params_file = LaunchConfiguration("common_params_file")
+    config_dir = LaunchConfiguration("config_dir")
     controller = LaunchConfiguration("controller")
     log_level = LaunchConfiguration("log_level")
     map_path = LaunchConfiguration("map")
+    map_save_path = LaunchConfiguration("map_save_path")
     namespace = LaunchConfiguration("namespace")
     params_file = LaunchConfiguration("params_file")
     robot_model = LaunchConfiguration("robot_model")
     slam = LaunchConfiguration("slam")
     use_sim_time = LaunchConfiguration("use_sim_time")
+
+    # Same convention as the rosbot_ros packages: config_dir points at a writable copy
+    # of the shipped config trees (`ros2 run rosbot_utils create_config_dir <dst>`), and
+    # each package reads <config_dir>/<pkg>/config/. Empty falls back to the package share.
+    pkg_config_path = PythonExpression(
+        [
+            "'",
+            config_dir,
+            "/rosbot_navigation/config' if '",
+            config_dir,
+            "' else '",
+            rosbot_navigation,
+            "/config'",
+        ]
+    )
 
     robot_footprint = {
         "rosbot": {"min_x": -0.10, "min_y": -0.12, "max_x": 0.10, "max_y": 0.12},
@@ -71,10 +88,16 @@ def generate_launch_description():
     def prepare_params_files(context):
         ns = namespace.perform(context)
         model = robot_model.perform(context)
-        share = rosbot_navigation.perform(context)
+        config_path = pkg_config_path.perform(context)
+        save_path = map_save_path.perform(context)
+
+        # map_saver writes through ImageMagick, which reports a bare "Unable to open
+        # file" if the directory is missing — and map_autosaver retries forever.
+        os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
 
         def substitute(text):
             text = text.replace("<namespace>/", (ns + "/") if ns else "")
+            text = text.replace("<map_save_path>", save_path)
             if model in robot_footprint:
                 fp = robot_footprint[model]
                 for key in ("min_x", "max_x", "min_y", "max_y"):
@@ -89,7 +112,7 @@ def generate_launch_description():
         controller = yaml.safe_load(substitute(open(params_file.perform(context)).read()))
         merged = {**common, **controller}
 
-        laser = open(os.path.join(share, "config", "laser_filter.yaml")).read()
+        laser = open(os.path.join(config_path, "laser_filter.yaml")).read()
         if model in laser_filter_box:
             for key, value in laser_filter_box[model].items():
                 laser = laser.replace(f"<lf_{key}>", str(value))
@@ -122,6 +145,12 @@ def generate_launch_description():
     params_filename = PythonExpression(["'nav2_' + '", controller, "' + '.yaml'"])
     declare_args = [
         DeclareLaunchArgument(
+            "config_dir",
+            default_value="",
+            description="Path to a writable copy of the config trees, as produced by "
+            "`ros2 run rosbot_utils create_config_dir <dst>`. Empty reads the package share.",
+        ),
+        DeclareLaunchArgument(
             "controller",
             default_value="mppi",
             description="Nav2 controller type",
@@ -137,18 +166,24 @@ def generate_launch_description():
             "map", default_value="", description="Full path to map yaml file to load"
         ),
         DeclareLaunchArgument(
+            "map_save_path",
+            default_value=os.path.join(os.path.expanduser("~"), "maps", "map"),
+            description="Where map_autosaver writes the SLAM map, without extension "
+            "(.yaml/.png are appended). The directory is created if missing.",
+        ),
+        DeclareLaunchArgument(
             "namespace",
             default_value=EnvironmentVariable("ROBOT_NAMESPACE", default_value=""),
             description="Add namespace to all launched nodes",
         ),
         DeclareLaunchArgument(
             "params_file",
-            default_value=PathJoinSubstitution([rosbot_navigation, "config", params_filename]),
+            default_value=PathJoinSubstitution([pkg_config_path, params_filename]),
             description="Path to the controller-specific nav2 parameters file",
         ),
         DeclareLaunchArgument(
             "common_params_file",
-            default_value=PathJoinSubstitution([rosbot_navigation, "config", "nav2_common.yaml"]),
+            default_value=PathJoinSubstitution([pkg_config_path, "nav2_common.yaml"]),
             description="Path to the common nav2 parameters file (shared across controllers)",
         ),
         DeclareLaunchArgument(

@@ -82,7 +82,7 @@ map_saver:
 map_autosaver:
   ros__parameters:
     autosave_period: 30.0
-    map_save_path: /maps/map  # path without extension (.yaml/.png appended)
+    map_save_path: <map_save_path>  # resolved from the launch arg of the same name
 
 behavior_server:
   ros__parameters:

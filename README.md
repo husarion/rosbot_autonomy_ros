@@ -127,9 +127,11 @@ the gamepad overrides navigation immediately, and letting go hands control back
 | Argument         | Description <br/> ***Type:*** `Default`                                                               |
 | ---------------- | ----------------------------------------------------------------------------------------------------- |
 | `common_params_file` | Path to the common nav2 parameters file (merged with `params_file`). <br/> ***string:*** [`nav2_common.yaml`](./rosbot_navigation/config/nav2_common.yaml) |
+| `config_dir`     | Writable copy of the config trees, as produced by `ros2 run rosbot_utils create_config_dir <dst> --add rosbot_navigation:config`. Empty reads the package share. <br/> ***string:*** `''` |
 | `controller`     | Nav2 controller type. <br/> ***string*** `mppi` (choices: `dwb`, `mppi`, `rpp`)                        |
 | `log_level`      | Logging level. <br/> ***string*** `info` (choices: `debug`, `info`, `warning`, `error`)               |
-| `map`            | Path to map yaml file to load. <br/> ***string:*** `/maps/map.yaml`                                   |
+| `map`            | Path to map yaml file to load. Only used with `slam:=False`. <br/> ***string:*** `''`                  |
+| `map_save_path`  | Where `map_autosaver` writes the SLAM map, without extension (`.yaml`/`.png` appended). The directory is created if missing. <br/> ***string:*** `~/maps/map` |
 | `namespace`      | Add namespace to all launched nodes. <br/> ***string:*** `env(ROBOT_NAMESPACE)`                       |
 | `params_file`    | Path to the controller-specific nav2 parameters file. <br/> ***string:*** [`nav2_<controller>.yaml`](./rosbot_navigation/config/) |
 | `robot_model`    | Specify robot model. <br/> ***string:*** `env(ROBOT_MODEL)` (choices: `rosbot`, `rosbot_xl`)          |

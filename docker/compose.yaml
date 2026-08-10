@@ -16,6 +16,7 @@ services:
       ros2 launch rosbot_navigation bringup.launch.py
         controller:=${CONTROLLER:-mppi}
         map:=/maps/map.yaml
+        map_save_path:=/maps/map
         robot_model:=${ROBOT_MODEL:?err}
         slam:=${SLAM:-True}
         use_sim_time:=False
