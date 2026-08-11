@@ -4,7 +4,7 @@
 controller_server:
   ros__parameters:
     enable_stamped_cmd_vel: true
-    controller_frequency: 20.0
+    controller_frequency: 10.0
     costmap_update_timeout: 0.30
     min_x_velocity_threshold: 0.01    # Measured
     min_y_velocity_threshold: 0.01    # Measured
@@ -31,9 +31,9 @@ controller_server:
     # MPPI controller
     FollowPath:
       plugin: nav2_mppi_controller::MPPIController
-      time_steps: 56
+      time_steps: 48
       model_dt: 0.05
-      batch_size: 2000
+      batch_size: 1000
       ax_max: 3.0
       ax_min: -3.0
       ay_max: 3.0
@@ -53,7 +53,7 @@ controller_server:
       temperature: 0.3
       gamma: 0.015
       motion_model: DiffDrive
-      regenerate_noises: true
+      regenerate_noises: false
       visualize: false
       publish_optimal_trajectory: false
       TrajectoryVisualizer:
@@ -91,13 +91,16 @@ controller_server:
         consider_footprint: false
         collision_cost: 1000000.0
         near_goal_distance: 0.7
-        trajectory_point_step: 2
+        # One costmap lookup per 4th rollout point. At 0.05 m/cell and model_dt
+        # 0.05 s the robot cannot cross a cell in fewer steps, so nothing is
+        # missed; this is the single heaviest critic.
+        trajectory_point_step: 4
       PathAlignCritic:
         enabled: true
         cost_power: 1
         cost_weight: 14.0
         max_path_occupancy_ratio: 0.05
-        trajectory_point_step: 4
+        trajectory_point_step: 8
         threshold_to_consider: 0.5
         offset_from_furthest: 20
         use_path_orientations: false
