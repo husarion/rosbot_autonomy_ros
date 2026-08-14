@@ -302,7 +302,7 @@ def main():
         help="topic nav2 will publish velocity commands to",
     )
     parser.add_argument("--controller", default="", help="nav2 controller that will be used")
-    parser.add_argument("--timeout", type=float, default=20.0, help="per-check timeout in seconds")
+    parser.add_argument("--timeout", type=float, default=30.0, help="per-check timeout in seconds")
     parser.add_argument(
         "--use-sim-time", default="false", help="expect a simulator to publish /clock"
     )
