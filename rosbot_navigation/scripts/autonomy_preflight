@@ -99,7 +99,12 @@ class Preflight(Node):
     def check_clock(self):
         if not self.use_sim_time_expected:
             return None
-        deadline = time.monotonic() + min(self.timeout, 5.0)
+        # Full timeout, not the 5s cap the other near-instant checks use: this is the
+        # very first check that spins the executor at all, so it lands on the least
+        # mature DDS discovery state of the whole run. A 5s budget here was flaky
+        # cross-container (gz_bridge has many endpoints to discover); every check
+        # that already used the full timeout has been reliable.
+        deadline = time.monotonic() + self.timeout
         if self._spin_until(lambda: self.clock_seen, deadline):
             return Check("sim clock", True, "/clock is publishing")
         return Check(
