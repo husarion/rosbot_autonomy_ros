@@ -94,11 +94,14 @@ controller_server:
         consider_footprint: false
         collision_cost: 1000000.0
         near_goal_distance: 0.7
-        # One costmap lookup per 4th rollout point — this is the single heaviest
-        # critic. Was tuned assuming model_dt 0.05s (max ~0.035m/step at 0.05m/cell,
-        # so no cell was skipped between lookups); model_dt is now 0.1s (~0.07m/step),
-        # so a 4-step gap can skip several cells. Re-check on hardware before trusting
-        # this value for obstacle avoidance at the new model_dt.
+        # One costmap lookup per 4th rollout point (the single heaviest critic).
+        # consider_footprint is false, so only vx_max sets the lookup spacing:
+        # 4 * model_dt * vx_max = 4 * 0.1 * 0.7 = 0.28 m between lookups. At
+        # model_dt 0.1 a single step (0.07 m) already exceeds one costmap cell
+        # (0.05 m), so no trajectory_point_step restores a strict no-cell-skipped
+        # guarantee — that would need a smaller model_dt. The real margin is
+        # inflation_radius (0.7 m, see nav2_common.yaml): 0.28 m is ~40% of it, so
+        # consecutive lookups still overlap any obstacle's inflated halo.
         trajectory_point_step: 4
       PathAlignCritic:
         enabled: true
