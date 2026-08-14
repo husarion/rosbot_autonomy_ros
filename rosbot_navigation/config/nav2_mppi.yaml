@@ -31,8 +31,11 @@ controller_server:
     # MPPI controller
     FollowPath:
       plugin: nav2_mppi_controller::MPPIController
-      time_steps: 48
-      model_dt: 0.05
+      time_steps: 28
+      # Must equal 1 / controller_frequency (nav2_mppi_controller::Optimizer::setOffset
+      # throws otherwise). controller_frequency dropped to 10.0 above without this
+      # following, so MPPI failed to configure on every launch.
+      model_dt: 0.1
       batch_size: 1000
       ax_max: 3.0
       ax_min: -3.0
@@ -91,9 +94,11 @@ controller_server:
         consider_footprint: false
         collision_cost: 1000000.0
         near_goal_distance: 0.7
-        # One costmap lookup per 4th rollout point. At 0.05 m/cell and model_dt
-        # 0.05 s the robot cannot cross a cell in fewer steps, so nothing is
-        # missed; this is the single heaviest critic.
+        # One costmap lookup per 4th rollout point — this is the single heaviest
+        # critic. Was tuned assuming model_dt 0.05s (max ~0.035m/step at 0.05m/cell,
+        # so no cell was skipped between lookups); model_dt is now 0.1s (~0.07m/step),
+        # so a 4-step gap can skip several cells. Re-check on hardware before trusting
+        # this value for obstacle avoidance at the new model_dt.
         trajectory_point_step: 4
       PathAlignCritic:
         enabled: true
