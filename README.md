@@ -1,6 +1,6 @@
 # rosbot-autonomy
 
-Autonomous navigation & mapping for ROSbot 2R / 2 PRO with a web user interface powered by Foxglove. Works over the Internet thanks to Husarnet VPN
+Autonomous navigation & mapping for ROSbot with a web user interface powered by Foxglove. Works over the Internet thanks to Husarnet VPN
 
 ![autonomy-result](https://github-readme-figures.s3.eu-central-1.amazonaws.com/rosbot/rosbot-autonomy/rosbot-autonomy.webp)
 
@@ -42,7 +42,7 @@ ros2 launch rosbot_navigation bringup.launch.py robot_model:=<rosbot/rosbot_xl>
 
 1. **ROSbot Platform & ROS Driver**
 
-    This demo is prepared for the **ROSbot Series** (ROSbot XL, ROSbot 3 / 3 PRO, ROSbot 2R / 2 PRO). This version is prepared to work with [rosbot](https://snapcraft.io/rosbot) ROS driver snap. To install snap follow the information in snapcraft.
+    This demo is prepared for the **ROSbot Series** (ROSbot XL, ROSbot 3 / 3 PRO). This version is prepared to work with [rosbot](https://snapcraft.io/rosbot) ROS driver snap. To install snap follow the information in snapcraft.
 
     The driver must run `twist_mux_controller` — Nav2 publishes to `autonomous/cmd_vel`, not `cmd_vel` (see [Velocity command arbitration](#velocity-command-arbitration)). On an older driver the robot will not move; override `collision_monitor.cmd_vel_out_topic` back to `cmd_vel` through `common_params_file` if you cannot update it.
 
@@ -141,6 +141,13 @@ ros2 run rosbot_navigation autonomy_preflight --namespace my_robot
 
 Disable the gate with `preflight:=False`, or give slow hardware more room with
 `preflight_timeout:=40.0`.
+
+rosbot_ros bridges `/<namespace>/tf` onto the global `/tf`, rewriting frame_ids with a
+`tf_prefix` along the way. Plain frame names like `base_link`/`odom` therefore only ever
+exist on the namespaced `/<namespace>/tf` topic, never on the bridged global one —
+`autonomy_preflight` remaps `/tf`(`_static`) to the relative topic itself so its checks
+keep working for a namespaced robot, the same way `bringup.launch.py` does for the rest
+of the nav2 stack via `SetRemap`.
 
 ### Velocity command arbitration
 

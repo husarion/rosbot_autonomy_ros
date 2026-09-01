@@ -62,7 +62,21 @@ class Check:
 
 class Preflight(Node):
     def __init__(self, namespace, scan_topic, cmd_vel_topic, timeout, use_sim_time):
-        super().__init__("autonomy_preflight", namespace=namespace)
+        # tf2_ros.TransformListener hardcodes the absolute topics /tf and /tf_static, so
+        # the node's own `namespace` above never applies to them. rosbot_ros bridges
+        # /<namespace>/tf onto the global /tf and rewrites frame_ids with a tf_prefix in
+        # the process, so plain frame names like "base_link"/"odom" only ever exist on
+        # the namespaced /<namespace>/tf topic — never on the bridged global one. Remap
+        # /tf(_static) -> tf(_static) ourselves (same trick bringup.launch.py already
+        # applies via SetRemap when this script runs under nav2) so the namespace turns
+        # it back into /<namespace>/tf, matching the frame names used below. Without
+        # this, running the script standalone against a namespaced robot always reports
+        # a missing odom -> base_link transform even though the robot is fine.
+        super().__init__(
+            "autonomy_preflight",
+            namespace=namespace,
+            cli_args=["--ros-args", "-r", "/tf:=tf", "-r", "/tf_static:=tf_static"],
+        )
         self.timeout = timeout
         self.use_sim_time_expected = use_sim_time
         self.scan_topic = scan_topic
