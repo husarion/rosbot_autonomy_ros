@@ -139,6 +139,15 @@ Run it on its own against a live robot:
 ros2 run rosbot_navigation autonomy_preflight --namespace my_robot
 ```
 
+For a UI, `--format jsonl` prints one JSON object per line and flushes each check as
+soon as it finishes:
+
+```json
+{"type": "begin", "namespace": "my_robot", "timeout": 30.0}
+{"type": "check", "name": "driver TF", "ok": true, "detail": "odom -> base_link is available", "fix": null}
+{"type": "end", "ok": true}
+```
+
 Disable the gate with `preflight:=False`, or give slow hardware more room with
 `preflight_timeout:=40.0`.
 
