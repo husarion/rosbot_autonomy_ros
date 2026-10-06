@@ -419,7 +419,7 @@
       }
     },
     "Joy!nlny7x": {
-      "topic": "{{env "NAMESPACE"}}/cmd_vel",
+      "topic": "{{env "NAMESPACE"}}/manual/cmd_vel",
       "frameId": "",
       "publishRate": 10,
       "stamped": {{env "CMD_VEL_STAMPED"}},

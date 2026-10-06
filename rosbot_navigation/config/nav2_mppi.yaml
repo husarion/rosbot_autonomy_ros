@@ -4,7 +4,7 @@
 controller_server:
   ros__parameters:
     enable_stamped_cmd_vel: true
-    controller_frequency: 20.0
+    controller_frequency: 10.0
     costmap_update_timeout: 0.30
     min_x_velocity_threshold: 0.01    # Measured
     min_y_velocity_threshold: 0.01    # Measured
@@ -31,9 +31,12 @@ controller_server:
     # MPPI controller
     FollowPath:
       plugin: nav2_mppi_controller::MPPIController
-      time_steps: 56
-      model_dt: 0.05
-      batch_size: 2000
+      time_steps: 28
+      # Must equal 1 / controller_frequency (nav2_mppi_controller::Optimizer::setOffset
+      # throws otherwise). controller_frequency dropped to 10.0 above without this
+      # following, so MPPI failed to configure on every launch.
+      model_dt: 0.1
+      batch_size: 1000
       ax_max: 3.0
       ax_min: -3.0
       ay_max: 3.0
@@ -53,7 +56,7 @@ controller_server:
       temperature: 0.3
       gamma: 0.015
       motion_model: DiffDrive
-      regenerate_noises: true
+      regenerate_noises: false
       visualize: false
       publish_optimal_trajectory: false
       TrajectoryVisualizer:
@@ -91,13 +94,21 @@ controller_server:
         consider_footprint: false
         collision_cost: 1000000.0
         near_goal_distance: 0.7
-        trajectory_point_step: 2
+        # One costmap lookup per 4th rollout point (the single heaviest critic).
+        # consider_footprint is false, so only vx_max sets the lookup spacing:
+        # 4 * model_dt * vx_max = 4 * 0.1 * 0.7 = 0.28 m between lookups. At
+        # model_dt 0.1 a single step (0.07 m) already exceeds one costmap cell
+        # (0.05 m), so no trajectory_point_step restores a strict no-cell-skipped
+        # guarantee — that would need a smaller model_dt. The real margin is
+        # inflation_radius (0.7 m, see nav2_common.yaml): 0.28 m is ~40% of it, so
+        # consecutive lookups still overlap any obstacle's inflated halo.
+        trajectory_point_step: 4
       PathAlignCritic:
         enabled: true
         cost_power: 1
         cost_weight: 14.0
         max_path_occupancy_ratio: 0.05
-        trajectory_point_step: 4
+        trajectory_point_step: 8
         threshold_to_consider: 0.5
         offset_from_furthest: 20
         use_path_orientations: false

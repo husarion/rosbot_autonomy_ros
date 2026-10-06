@@ -1,0 +1,21 @@
+# The build only needs rosbot_navigation/ (colcon package copied to
+# src/rosbot_autonomy_ros in the Dockerfile). Everything else here is
+# dev/CI tooling — excluding it stops unrelated edits (docs, compose files,
+# CI workflows) from busting the COPY layer cache and forcing a rebuild.
+.git
+.github
+docker
+maps
+.pre-commit-config.yaml
+.gitignore
+.dockerignore
+README.md
+LICENSE
+justfile
+
+**/__pycache__
+**/*.pyc
+**/.vscode
+**/build
+**/install
+**/log

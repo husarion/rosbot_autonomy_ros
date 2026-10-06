@@ -1,6 +1,6 @@
 # rosbot-autonomy
 
-Autonomous navigation & mapping for ROSbot 2R / 2 PRO with a web user interface powered by Foxglove. Works over the Internet thanks to Husarnet VPN
+Autonomous navigation & mapping for ROSbot with a web user interface powered by Foxglove. Works over the Internet thanks to Husarnet VPN
 
 ![autonomy-result](https://github-readme-figures.s3.eu-central-1.amazonaws.com/rosbot/rosbot-autonomy/rosbot-autonomy.webp)
 
@@ -42,7 +42,9 @@ ros2 launch rosbot_navigation bringup.launch.py robot_model:=<rosbot/rosbot_xl>
 
 1. **ROSbot Platform & ROS Driver**
 
-    This demo is prepared for the **ROSbot Series** (ROSbot XL, ROSbot 3 / 3 PRO, ROSbot 2R / 2 PRO). This version is prepared to work with [rosbot](https://snapcraft.io/rosbot) ROS driver snap. To install snap follow the information in snapcraft.
+    This demo is prepared for the **ROSbot Series** (ROSbot XL, ROSbot 3 / 3 PRO). This version is prepared to work with [rosbot](https://snapcraft.io/rosbot) ROS driver snap. To install snap follow the information in snapcraft.
+
+    The driver must run `twist_mux_controller` — Nav2 publishes to `autonomous/cmd_vel`, not `cmd_vel` (see [Velocity command arbitration](#velocity-command-arbitration)). On an older driver the robot will not move; override `collision_monitor.cmd_vel_out_topic` back to `cmd_vel` through `common_params_file` if you cannot update it.
 
 2. **Robot Configuration**
 
@@ -104,14 +106,84 @@ just start-simulation
 
 ## Documentation
 
+### Startup checks
+
+Nav2 starts happily against a half-configured robot and then simply does nothing — a
+missing lidar, a missing transform to the laser frame and a driver that is not running
+all look identical from the outside. `autonomy_preflight` runs first and names the
+problem:
+
+```
+autonomy preflight — namespace (none), timeout 20 s
+
+  [ok  ] driver TF      odom -> base_link is available
+  [ok  ] odometry       /odometry/filtered is publishing
+  [ok  ] velocity sink  the driver listens on /autonomous/cmd_vel
+  [ok  ] lidar          /scan is publishing (frame_id 'laser')
+  [FAIL] laser TF       no transform base_link -> laser
+
+--- laser TF ---
+The scan is published in frame 'laser', but that frame is not in the robot's
+URDF, so nav2 cannot place the measurements. The robot configuration most
+likely has no lidar mounted.
+    sudo snap set rosbot driver.configuration=autonomy
+    sudo rosbot.restart
+```
+
+Nav2 is not started unless every check passes; the launch shuts down instead. Fix hints
+adapt to how the robot is installed (snap commands vs `ros2 launch`).
+
+Run it on its own against a live robot:
+
+```bash
+ros2 run rosbot_navigation autonomy_preflight --namespace my_robot
+```
+
+For a UI, `--format jsonl` prints one JSON object per line and flushes each check as
+soon as it finishes:
+
+```json
+{"type": "begin", "namespace": "my_robot", "timeout": 30.0}
+{"type": "check", "name": "driver TF", "ok": true, "detail": "odom -> base_link is available", "fix": null}
+{"type": "end", "ok": true}
+```
+
+Disable the gate with `preflight:=False`, or give slow hardware more room with
+`preflight_timeout:=40.0`.
+
+rosbot_ros bridges `/<namespace>/tf` onto the global `/tf`, rewriting frame_ids with a
+`tf_prefix` along the way. Plain frame names like `base_link`/`odom` therefore only ever
+exist on the namespaced `/<namespace>/tf` topic, never on the bridged global one —
+`autonomy_preflight` remaps `/tf`(`_static`) to the relative topic itself so its checks
+keep working for a namespaced robot, the same way `bringup.launch.py` does for the rest
+of the nav2 stack via `SetRemap`.
+
+### Velocity command arbitration
+
+The driver arbitrates between velocity sources inside its control loop
+(`twist_mux_controller`), so navigation and a human operator can be connected at
+the same time:
+
+| Topic | Priority | Published by |
+| ----- | -------- | ------------ |
+| `manual/cmd_vel` | 100 | gamepad, keyboard teleop, the Foxglove joystick panel |
+| `autonomous/cmd_vel` | 10 | Nav2 (`collision_monitor` output) |
+| `cmd_vel` | 1 | anything else |
+
+The highest-priority source that published within the last 0.2 s wins. Grabbing
+the gamepad overrides navigation immediately, and letting go hands control back
+— no mode switch. `twist_mux_controller/source` reports who is driving.
+
 ### Launch Arguments
 
 | Argument         | Description <br/> ***Type:*** `Default`                                                               |
 | ---------------- | ----------------------------------------------------------------------------------------------------- |
 | `common_params_file` | Path to the common nav2 parameters file (merged with `params_file`). <br/> ***string:*** [`nav2_common.yaml`](./rosbot_navigation/config/nav2_common.yaml) |
+| `config_dir`     | Writable copy of the config trees, as produced by `ros2 run rosbot_utils create_config_dir <dst> --add rosbot_navigation:config`. Empty reads the package share. <br/> ***string:*** `''` |
 | `controller`     | Nav2 controller type. <br/> ***string*** `mppi` (choices: `dwb`, `mppi`, `rpp`)                        |
 | `log_level`      | Logging level. <br/> ***string*** `info` (choices: `debug`, `info`, `warning`, `error`)               |
-| `map`            | Path to map yaml file to load. <br/> ***string:*** `/maps/map.yaml`                                   |
+| `map`            | Path to map yaml file to load. Only used with `slam:=False`. <br/> ***string:*** `''`                  |
+| `map_save_path`  | Where `map_autosaver` writes the SLAM map, without extension (`.yaml`/`.png` appended). The directory is created if missing. <br/> ***string:*** `~/maps/map` |
 | `namespace`      | Add namespace to all launched nodes. <br/> ***string:*** `env(ROBOT_NAMESPACE)`                       |
 | `params_file`    | Path to the controller-specific nav2 parameters file. <br/> ***string:*** [`nav2_<controller>.yaml`](./rosbot_navigation/config/) |
 | `robot_model`    | Specify robot model. <br/> ***string:*** `env(ROBOT_MODEL)` (choices: `rosbot`, `rosbot_xl`)          |
