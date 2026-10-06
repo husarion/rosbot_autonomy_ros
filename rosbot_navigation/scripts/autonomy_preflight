@@ -24,6 +24,7 @@ Exits 0 when every check passes, 1 otherwise.
 """
 
 import argparse
+import json
 import os
 import sys
 import time
@@ -282,7 +283,7 @@ class Preflight(Node):
 
     def _hint_controller(self):
         if self.in_snap:
-            return "    sudo snap set rosbot autonomy.controller=rpp"
+            return "    sudo snap set rosbot navigation.controller=rpp"
         return "    ros2 launch rosbot_navigation bringup.launch.py controller:=rpp ..."
 
 
@@ -306,6 +307,12 @@ def report(checks, namespace, timeout):
         print("")
 
 
+def emit(record):
+    # One line per event, flushed at once: a UI streaming this shows each check as it
+    # completes instead of after the slowest one.
+    print(json.dumps(record), flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--namespace", default="", help="ROS namespace the robot runs in")
@@ -320,6 +327,12 @@ def main():
     parser.add_argument(
         "--use-sim-time", default="false", help="expect a simulator to publish /clock"
     )
+    parser.add_argument(
+        "--format",
+        choices=["text", "jsonl"],
+        default="text",
+        help="jsonl: one JSON object per line, each check printed as soon as it finishes",
+    )
     args = parser.parse_args(remove_ros_args(sys.argv)[1:])
 
     rclpy.init(args=sys.argv)
@@ -331,20 +344,42 @@ def main():
         use_sim_time=args.use_sim_time.lower() in ("true", "1", "yes"),
     )
 
+    jsonl = args.format == "jsonl"
+    if jsonl:
+        emit({"type": "begin", "namespace": args.namespace, "timeout": args.timeout})
+
     # Ordered cheapest-and-most-fundamental first: a dead driver explains every later
     # failure, so reporting it first keeps the output from burying the real cause.
-    candidates = [
-        node.check_controller(args.controller),
-        node.check_clock(),
-        node.check_odom_transform(),
-        node.check_odometry(),
-        node.check_cmd_vel_sink(),
-        node.check_scan(),
-        node.check_scan_transform(),
+    steps = [
+        lambda: node.check_controller(args.controller),
+        node.check_clock,
+        node.check_odom_transform,
+        node.check_odometry,
+        node.check_cmd_vel_sink,
+        node.check_scan,
+        node.check_scan_transform,
     ]
-    checks = [c for c in candidates if c is not None]
+    checks = []
+    for step in steps:
+        check = step()
+        if check is None:
+            continue
+        checks.append(check)
+        if jsonl:
+            emit(
+                {
+                    "type": "check",
+                    "name": check.name,
+                    "ok": check.ok,
+                    "detail": check.detail,
+                    "fix": check.fix,
+                }
+            )
 
-    report(checks, args.namespace, args.timeout)
+    if jsonl:
+        emit({"type": "end", "ok": all(c.ok for c in checks)})
+    else:
+        report(checks, args.namespace, args.timeout)
 
     node.destroy_node()
     rclpy.shutdown()
