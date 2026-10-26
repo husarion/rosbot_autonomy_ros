@@ -31,7 +31,7 @@ services:
     command: >
       ros2 launch rosbot_gazebo simulation.yaml
         configuration:=${CONFIGURATION:-basic}
-        robot_model:=${ROBOT_MODEL:-err}
+        robot_model:=${ROBOT_MODEL:?err}
         rviz_config:=/layout/nav2.rviz
 
   rosbot_navigation:

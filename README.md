@@ -44,7 +44,7 @@ ros2 launch rosbot_navigation bringup.launch.py robot_model:=<rosbot/rosbot_xl>
 
     This demo is prepared for the **ROSbot Series** (ROSbot XL, ROSbot 3 / 3 PRO). This version is prepared to work with [rosbot](https://snapcraft.io/rosbot) ROS driver snap. To install snap follow the information in snapcraft.
 
-    The driver must run `twist_mux_controller` — Nav2 publishes to `autonomous/cmd_vel`, not `cmd_vel` (see [Velocity command arbitration](#velocity-command-arbitration)). On an older driver the robot will not move; override `collision_monitor.cmd_vel_out_topic` back to `cmd_vel` through `common_params_file` if you cannot update it.
+    The driver must run `twist_mux_controller` (rosbot_ros ≥ 1.2.0) — Nav2 publishes to `autonomous/cmd_vel`, not `cmd_vel` (see [Velocity command arbitration](#velocity-command-arbitration)). On an older driver the robot will not move; override `collision_monitor.cmd_vel_out_topic` back to `cmd_vel` through `common_params_file` if you cannot update it.
 
 2. **Robot Configuration**
 
@@ -66,7 +66,7 @@ ros2 launch rosbot_navigation bringup.launch.py robot_model:=<rosbot/rosbot_xl>
 
 #### Step 1: Environment configuration
 
-Setup environment variable in `docker/.env`.
+Setup environment variables in `docker/.env`: `ROBOT_MODEL` (`rosbot` / `rosbot_xl`), `ROBOT_NAMESPACE` (must match the driver's namespace), `CONFIGURATION`, `CONTROLLER` (`dwb` / `mppi` / `rpp`) and `SLAM` (`True` / `False`).
 
 In simulation, Nav2 needs a lidar publishing the `scan` topic, so pick a `CONFIGURATION` that includes one:
 
@@ -182,9 +182,11 @@ the gamepad overrides navigation immediately, and letting go hands control back
 | `config_dir`     | Writable copy of the config trees, as produced by `ros2 run rosbot_utils create_config_dir <dst> --add rosbot_navigation:config`. Empty reads the package share. <br/> ***string:*** `''` |
 | `controller`     | Nav2 controller type. <br/> ***string*** `mppi` (choices: `dwb`, `mppi`, `rpp`)                        |
 | `log_level`      | Logging level. <br/> ***string*** `info` (choices: `debug`, `info`, `warning`, `error`)               |
-| `map`            | Path to map yaml file to load. Only used with `slam:=False`. <br/> ***string:*** `''`                  |
+| `map`            | Path to map yaml file to load. Required with `slam:=False` — the launch fails if the file does not exist. <br/> ***string:*** `''` |
 | `map_save_path`  | Where `map_autosaver` writes the SLAM map, without extension (`.yaml`/`.png` appended). The directory is created if missing. <br/> ***string:*** `~/maps/map` |
 | `namespace`      | Add namespace to all launched nodes. <br/> ***string:*** `env(ROBOT_NAMESPACE)`                       |
+| `preflight`      | Check that the robot is navigable (lidar, transforms, driver) and refuse to start nav2 if it is not. <br/> ***bool:*** `True` |
+| `preflight_timeout` | Seconds each preflight check waits before reporting a failure. <br/> ***float:*** `20.0` |
 | `params_file`    | Path to the controller-specific nav2 parameters file. <br/> ***string:*** [`nav2_<controller>.yaml`](./rosbot_navigation/config/) |
 | `robot_model`    | Specify robot model. <br/> ***string:*** `env(ROBOT_MODEL)` (choices: `rosbot`, `rosbot_xl`)          |
 | `slam`           | Whether run a SLAM. <br/> ***bool:*** `True`                                                          |

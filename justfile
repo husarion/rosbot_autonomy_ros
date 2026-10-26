@@ -115,7 +115,7 @@ start-navigation:
                 exit 1
                 ;;
             *)
-                export CONTROLLER=RPP
+                export CONTROLLER=rpp
                 echo "Using RPP controller."
                 ;;
         esac
