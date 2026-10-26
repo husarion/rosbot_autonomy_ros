@@ -273,13 +273,16 @@ def generate_launch_description():
     # Specify the actions
     bringup_group = GroupAction(
         [
+            # Node-scoped rename instead of name=: a process-wide __node remap also renames
+            # box_filter's internal node, so two nodes end up called laser_filter.
+            # Drop once ros-perception/laser_filters#266 is released.
             Node(
-                name="laser_filter",
                 namespace="",
                 package="laser_filters",
                 executable="scan_to_scan_filter_chain",
                 parameters=[configured_laser_filter_params],
                 arguments=["--ros-args", "--log-level", log_level],
+                ros_arguments=["-r", "scan_to_scan_filter_chain:__node:=laser_filter"],
                 output="screen",
             ),
             Node(
