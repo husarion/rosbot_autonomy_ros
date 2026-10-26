@@ -48,7 +48,13 @@ AutosaveMapNode::AutosaveMapNode(const std::string &node_name,
 void AutosaveMapNode::SaveMapCB() {
   if (save_map_client_->wait_for_service(SAVE_MAP_CONNECTION_TIMEOUT)) {
     auto request = CreateSaveMapRequest();
-    save_map_client_->async_send_request(request);
+    save_map_client_->async_send_request(
+        request,
+        [this](rclcpp::Client<nav2_msgs::srv::SaveMap>::SharedFuture future) {
+          if (!future.get()->result) {
+            RCLCPP_WARN(get_logger(), "map_saver failed to save the map");
+          }
+        });
   } else {
     RCLCPP_WARN(get_logger(), "map_saver/save_map service unavailable");
   }

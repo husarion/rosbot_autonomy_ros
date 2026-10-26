@@ -29,7 +29,7 @@ from launch.actions import (
     SetLaunchConfiguration,
 )
 from launch.conditions import IfCondition, UnlessCondition
-from launch.event_handlers import OnProcessExit
+from launch.event_handlers import OnProcessExit, OnShutdown
 from launch.events import Shutdown
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import (
@@ -93,10 +93,17 @@ def generate_launch_description():
     }
 
     def prepare_params_files(context):
-        ns = namespace.perform(context)
+        ns = namespace.perform(context).strip("/")
         model = robot_model.perform(context)
         config_path = pkg_config_path.perform(context)
-        save_path = map_save_path.perform(context)
+        save_path = os.path.expanduser(map_save_path.perform(context))
+
+        map_file = os.path.expanduser(map_path.perform(context))
+        if slam.perform(context).lower() not in ("true", "1"):
+            if not os.path.isfile(map_file):
+                raise RuntimeError(
+                    f"slam:=False needs an existing map yaml, got map:='{map_file}'"
+                )
 
         # map_saver writes through ImageMagick, which reports a bare "Unable to open
         # file" if the directory is missing — and map_autosaver retries forever.
@@ -131,9 +138,18 @@ def generate_launch_description():
         with os.fdopen(fd, "w") as f:
             f.write(laser)
 
+        def remove_params_files(_context):
+            for path in (merged_path, laser_path):
+                if os.path.exists(path):
+                    os.remove(path)
+
         return [
             SetLaunchConfiguration("params_file", merged_path),
             SetLaunchConfiguration("laser_filter_params_file", laser_path),
+            SetLaunchConfiguration("map", map_file),
+            RegisterEventHandler(
+                OnShutdown(on_shutdown=[OpaqueFunction(function=remove_params_files)])
+            ),
         ]
 
     prepare_params_action = OpaqueFunction(function=prepare_params_files)
@@ -229,6 +245,8 @@ def generate_launch_description():
                 SetRemap("/diagnostics", "diagnostics"),
                 SetRemap("/tf", "tf"),
                 SetRemap("/tf_static", "tf_static"),
+                # MPPI publishes its candidate trajectories on an absolute topic.
+                SetRemap("/trajectories", "trajectories"),
                 *actions,
             ],
             condition=condition,
@@ -255,13 +273,16 @@ def generate_launch_description():
     # Specify the actions
     bringup_group = GroupAction(
         [
+            # Node-scoped rename instead of name=: a process-wide __node remap also renames
+            # box_filter's internal node, so two nodes end up called laser_filter.
+            # Drop once ros-perception/laser_filters#266 is released.
             Node(
-                name="laser_filter",
                 namespace="",
                 package="laser_filters",
                 executable="scan_to_scan_filter_chain",
                 parameters=[configured_laser_filter_params],
                 arguments=["--ros-args", "--log-level", log_level],
+                ros_arguments=["-r", "scan_to_scan_filter_chain:__node:=laser_filter"],
                 output="screen",
             ),
             Node(

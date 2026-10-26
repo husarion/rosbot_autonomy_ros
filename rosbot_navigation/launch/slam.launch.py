@@ -60,7 +60,7 @@ def generate_launch_description():
 
     declare_use_sim_time_arg = DeclareLaunchArgument(
         "use_sim_time",
-        default_value="True",
+        default_value="False",
         description="Use simulation (Gazebo) clock if true",
     )
 
@@ -100,7 +100,6 @@ def generate_launch_description():
             SetRemap(src="/scan", dst="scan"),
             SetRemap(src="/tf", dst="tf"),
             SetRemap(src="/tf_static", dst="tf_static"),
-            SetRemap(src="/map", dst="map"),
             LifecycleNode(
                 package="slam_toolbox",
                 executable="sync_slam_toolbox_node",
@@ -109,7 +108,13 @@ def generate_launch_description():
                 output="screen",
                 parameters=[
                     configured_params,
-                    {"use_sim_time": use_sim_time, "use_lifecycle_manager": True},
+                    # Relative map_name keeps map and map_metadata (derived from it) in the
+                    # namespace; a /map remap alone leaves /map_metadata global.
+                    {
+                        "use_sim_time": use_sim_time,
+                        "use_lifecycle_manager": True,
+                        "map_name": "map",
+                    },
                 ],
                 arguments=["--ros-args", "--log-level", log_level],
             ),  # namespace="" inherits the pushed ROS namespace (like map_saver)

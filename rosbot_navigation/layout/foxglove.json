@@ -346,11 +346,6 @@
         },
         "{{env "NAMESPACE"}}/collision_monitor/collision_points_marker": {
           "visible": false
-        },
-        "{{env "NAMESPACE"}}/polygon_slowdown": {
-          "visible": false,
-          "color": "#dd9c00ff",
-          "lineWidth": 0.027
         }
       },
       "publish": {
@@ -406,16 +401,16 @@
       "layers": {},
       "publish": {
         "type": "point",
-        "poseTopic": "/move_base_simple/goal",
-        "pointTopic": "/clicked_point",
-        "poseEstimateTopic": "/initialpose",
+        "poseTopic": "{{env "NAMESPACE"}}/move_base_simple/goal",
+        "pointTopic": "{{env "NAMESPACE"}}/clicked_point",
+        "poseEstimateTopic": "{{env "NAMESPACE"}}/initialpose",
         "poseEstimateXDeviation": 0.5,
         "poseEstimateYDeviation": 0.5,
         "poseEstimateThetaDeviation": 0.26179939
       },
       "imageMode": {
-        "imageTopic": "/camera/color/image_raw",
-        "calibrationTopic": "/camera/color/camera_info"
+        "imageTopic": "{{env "NAMESPACE"}}/camera/color/image_raw",
+        "calibrationTopic": "{{env "NAMESPACE"}}/camera/color/camera_info"
       }
     },
     "Joy!nlny7x": {
