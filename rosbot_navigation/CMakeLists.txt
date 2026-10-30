@@ -10,10 +10,14 @@ include_directories(include)
 # Find packages
 set(DEPENDENCIES
     ament_cmake
+    geometry_msgs
     nav2_msgs
     nav_msgs
     rclcpp
-    std_srvs)
+    sensor_msgs
+    std_srvs
+    tf2
+    tf2_ros)
 
 foreach(PACKAGE IN ITEMS ${DEPENDENCIES})
   find_package(${PACKAGE} REQUIRED)

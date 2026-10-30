@@ -192,6 +192,31 @@ it as `map` / `map_metadata`, which Nav2, `map_autosaver` and every viewer read:
 Erasures live in the node's memory: a restart of navigation drops them, but a map
 saved meanwhile keeps them.
 
+**Automatic clearing** (`map_eraser.auto_clear.enabled`, on in
+[`nav2_common.yaml`](./rosbot_navigation/config/nav2_common.yaml)) does the same
+without anyone pressing anything: `map_eraser` traces the live `scan_filtered`
+beams and publishes a cell slam still calls occupied as unknown once beams have
+kept crossing it (`min_free` decayed pass-throughs, time constant `decay`) and no
+beam has ended in it, or within `hit_radius_cells` of it, for `hit_hold` seconds.
+A beam's last `hit_margin` + `hit_margin_per_m` × range is not counted, and a beam
+with no return counts as free up to `range` — karto ignores those, so a wall that
+stood in front of open space never fades in slam itself. The first beam that ends
+in the cell again shows the obstacle at the next map update.
+
+In the Gazebo sim (box 1.3 m ahead, mapped over 10 drives of ~0.7 m, then
+removed): slam alone still held 24 of its 37 cells after 12 more drives; `map`
+showed none after 6 (~30 s, `hit_hold`), and the box was back in `map` at the
+first update after it reappeared. Along walls the clearing eats the 1–2 cells
+slam drew too thick, never the wall itself.
+
+`slam_executable:=lifelong_slam_toolbox_node` (experimental upstream) makes slam
+itself forget: it drops older graph nodes that newer scans overlap. With upstream's
+lifelong parameters it removed nothing in the sim run; with the ones in
+`nav2_common.yaml` the same box went from 40 cells to 15 after 8 drives in
+`slam_map` (the rest came from the first two nodes, which lifelong never drops),
+and after ~100 removed nodes the walls of the explored area were still whole.
+Sync slam with automatic clearing stays the default.
+
 ### Launch Arguments
 
 | Argument         | Description <br/> ***Type:*** `Default`                                                               |
@@ -208,4 +233,5 @@ saved meanwhile keeps them.
 | `params_file`    | Path to the controller-specific nav2 parameters file. <br/> ***string:*** [`nav2_<controller>.yaml`](./rosbot_navigation/config/) |
 | `robot_model`    | Specify robot model. <br/> ***string:*** `env(ROBOT_MODEL)` (choices: `rosbot`, `rosbot_xl`)          |
 | `slam`           | Whether run a SLAM. <br/> ***bool:*** `True`                                                          |
+| `slam_executable` | slam_toolbox node for `slam:=True`: `sync_slam_toolbox_node` or `lifelong_slam_toolbox_node`. <br/> ***string:*** `sync_slam_toolbox_node` |
 | `use_sim_time`   | Use simulation (Gazebo) clock if true. <br/> ***bool:*** `False`                                      |

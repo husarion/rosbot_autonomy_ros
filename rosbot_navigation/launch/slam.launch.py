@@ -29,6 +29,7 @@ def generate_launch_description():
     params_file = LaunchConfiguration("params_file")
     use_sim_time = LaunchConfiguration("use_sim_time")
     log_level = LaunchConfiguration("log_level")
+    slam_executable = LaunchConfiguration("slam_executable")
 
     # Variables
     lifecycle_nodes = ["slam_toolbox", "map_saver"]
@@ -62,6 +63,12 @@ def generate_launch_description():
         "use_sim_time",
         default_value="False",
         description="Use simulation (Gazebo) clock if true",
+    )
+
+    declare_slam_executable_arg = DeclareLaunchArgument(
+        "slam_executable",
+        default_value="sync_slam_toolbox_node",
+        description="slam_toolbox node: sync_slam_toolbox_node or lifelong_slam_toolbox_node",
     )
 
     declare_log_level_arg = DeclareLaunchArgument(
@@ -102,7 +109,7 @@ def generate_launch_description():
             SetRemap(src="/tf_static", dst="tf_static"),
             LifecycleNode(
                 package="slam_toolbox",
-                executable="sync_slam_toolbox_node",
+                executable=slam_executable,
                 name="slam_toolbox",
                 namespace="",
                 output="screen",
@@ -124,7 +131,7 @@ def generate_launch_description():
                 name="map_eraser",
                 namespace="",
                 output="screen",
-                parameters=[{"use_sim_time": use_sim_time}],
+                parameters=[configured_params, {"use_sim_time": use_sim_time}],
                 arguments=["--ros-args", "--log-level", log_level],
             ),
         ]
@@ -135,6 +142,7 @@ def generate_launch_description():
         declare_params_file_arg,
         declare_use_sim_time_arg,
         declare_log_level_arg,
+        declare_slam_executable_arg,
         map_server,
         slam_toolbox,
     ]
