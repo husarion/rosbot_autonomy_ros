@@ -79,6 +79,24 @@ map_saver:
     occupied_thresh_default: 0.65
     map_subscribe_transient_local: true
 
+map_eraser:
+  ros__parameters:
+    # Blank occupied cells the live lidar keeps seeing through (a moved box,
+    # an opened door), not only the ones erased by hand. A beam with no return
+    # within range counts as free up to auto_clear.range: karto ignores those,
+    # so a wall that stood in front of open space never fades in slam itself.
+    auto_clear:
+      enabled: true
+      scan_topic: scan_filtered
+      range: 6.0         # m, free evidence per beam at most this far
+      hit_margin: 0.1    # m before a return that is not free evidence,
+      hit_margin_per_m: 0.03  # plus this share of the range
+      hit_radius_cells: 2     # a recent return this close keeps the cell
+      beam_step: 2
+      min_free: 20.0     # decayed pass-throughs needed
+      hit_hold: 30.0     # s with no return in the cell
+      decay: 60.0        # s, time constant of the free evidence
+
 map_autosaver:
   ros__parameters:
     autosave_period: 30.0
@@ -137,13 +155,16 @@ slam_toolbox:
     use_map_saver: true
     mode: mapping #localization
 
-    # lifelong params
+    # lifelong params (slam_executable:=lifelong_slam_toolbox_node only). Each new
+    # scan lowers an older overlapping node's score by overlap_score_scale x overlap;
+    # with upstream's 0.06 and the constraint boost a node lost ~0.004 per scan in the
+    # sim and was never removed. These drop a node after ~3 overlapping newer scans.
     lifelong_search_use_tree: false
     lifelong_minimum_score: 0.1
     lifelong_iou_match: 0.85
-    lifelong_node_removal_score: 0.04
-    lifelong_overlap_score_scale: 0.06
-    lifelong_constraint_multiplier: 0.08
+    lifelong_node_removal_score: 0.1
+    lifelong_overlap_score_scale: 0.5
+    lifelong_constraint_multiplier: 0.0
     lifelong_nearby_penalty: 0.001
     lifelong_candidates_scale: 0.03
 
