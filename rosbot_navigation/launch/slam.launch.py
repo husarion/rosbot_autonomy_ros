@@ -108,16 +108,25 @@ def generate_launch_description():
                 output="screen",
                 parameters=[
                     configured_params,
-                    # Relative map_name keeps map and map_metadata (derived from it) in the
-                    # namespace; a /map remap alone leaves /map_metadata global.
+                    # Relative map_name keeps slam_map and slam_map_metadata in the
+                    # namespace; map_eraser republishes them as map and map_metadata.
                     {
                         "use_sim_time": use_sim_time,
                         "use_lifecycle_manager": True,
-                        "map_name": "map",
+                        "map_name": "slam_map",
                     },
                 ],
                 arguments=["--ros-args", "--log-level", log_level],
             ),  # namespace="" inherits the pushed ROS namespace (like map_saver)
+            Node(
+                package="rosbot_navigation",
+                executable="map_eraser_node",
+                name="map_eraser",
+                namespace="",
+                output="screen",
+                parameters=[{"use_sim_time": use_sim_time}],
+                arguments=["--ros-args", "--log-level", log_level],
+            ),
         ]
     )
 

@@ -157,6 +157,9 @@ slam_toolbox:
     transform_timeout: 0.2
     tf_buffer_duration: 10.
     stack_size_to_use: 40000000 #// program needs a larger stack size to serialize large maps
+    # A cell is occupied when hits/pass-throughs > this (karto default 0.1): a removed
+    # wall then needs ~5x, not ~10x, more pass-throughs than hits to clear.
+    occupancy_threshold: 0.2
 
     # General Parameters
     use_scan_matching: true

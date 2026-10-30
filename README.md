@@ -174,6 +174,24 @@ The highest-priority source that published within the last 0.2 s wins. Grabbing
 the gamepad overrides navigation immediately, and letting go hands control back
 — no mode switch. `twist_mux_controller/source` reports who is driving.
 
+### Erasing stale walls (SLAM)
+
+slam_toolbox re-renders its grid from every scan it has kept, and a cell stays
+occupied while hits / pass-throughs > `occupancy_threshold` (0.2 here, karto's
+default is 0.1). A wall that is gone therefore fades only after the robot has
+looked through it several times more often than it saw it.
+
+With `slam:=True`, slam_toolbox publishes `slam_map` and `map_eraser` republishes
+it as `map` / `map_metadata`, which Nav2, `map_autosaver` and every viewer read:
+
+| Interface | Type | Effect |
+| --------- | ---- | ------ |
+| `map_eraser/erase` | `nav2_msgs/srv/ClearCostmapAroundPose` | Cells within `reset_distance` (m, ≤ `max_radius`, default 5) of `pose` (frame `map`) that slam still calls occupied are published as unknown. The first time slam calls a cell free it is released, so a real obstacle that appears there later shows again. |
+| `map_eraser/reset` | `std_srvs/srv/Trigger` | Drops every erasure. |
+
+Erasures live in the node's memory: a restart of navigation drops them, but a map
+saved meanwhile keeps them.
+
 ### Launch Arguments
 
 | Argument         | Description <br/> ***Type:*** `Default`                                                               |
