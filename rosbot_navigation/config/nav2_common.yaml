@@ -137,13 +137,16 @@ slam_toolbox:
     use_map_saver: true
     mode: mapping #localization
 
-    # lifelong params
+    # lifelong params (slam_executable:=lifelong_slam_toolbox_node only). Each new
+    # scan lowers an older overlapping node's score by overlap_score_scale x overlap;
+    # with upstream's 0.06 and the constraint boost a node lost ~0.004 per scan in the
+    # sim and was never removed. These drop a node after ~3 overlapping newer scans.
     lifelong_search_use_tree: false
     lifelong_minimum_score: 0.1
     lifelong_iou_match: 0.85
-    lifelong_node_removal_score: 0.04
-    lifelong_overlap_score_scale: 0.06
-    lifelong_constraint_multiplier: 0.08
+    lifelong_node_removal_score: 0.1
+    lifelong_overlap_score_scale: 0.5
+    lifelong_constraint_multiplier: 0.0
     lifelong_nearby_penalty: 0.001
     lifelong_candidates_scale: 0.03
 
