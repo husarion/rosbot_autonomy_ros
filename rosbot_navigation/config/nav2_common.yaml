@@ -79,6 +79,24 @@ map_saver:
     occupied_thresh_default: 0.65
     map_subscribe_transient_local: true
 
+map_eraser:
+  ros__parameters:
+    # Blank occupied cells the live lidar keeps seeing through (a moved box,
+    # an opened door), not only the ones erased by hand. A beam with no return
+    # within range counts as free up to auto_clear.range: karto ignores those,
+    # so a wall that stood in front of open space never fades in slam itself.
+    auto_clear:
+      enabled: true
+      scan_topic: scan_filtered
+      range: 6.0         # m, free evidence per beam at most this far
+      hit_margin: 0.1    # m before a return that is not free evidence,
+      hit_margin_per_m: 0.03  # plus this share of the range
+      hit_radius_cells: 2     # a recent return this close keeps the cell
+      beam_step: 2
+      min_free: 20.0     # decayed pass-throughs needed
+      hit_hold: 30.0     # s with no return in the cell
+      decay: 60.0        # s, time constant of the free evidence
+
 map_autosaver:
   ros__parameters:
     autosave_period: 30.0

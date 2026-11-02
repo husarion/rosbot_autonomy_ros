@@ -174,21 +174,48 @@ The highest-priority source that published within the last 0.2 s wins. Grabbing
 the gamepad overrides navigation immediately, and letting go hands control back
 — no mode switch. `twist_mux_controller/source` reports who is driving.
 
-### Stale walls in SLAM
+### Erasing stale walls (SLAM)
 
 slam_toolbox re-renders its grid from every scan it has kept, and a cell stays
 occupied while hits / pass-throughs > `occupancy_threshold` (0.2 here, karto's
 default is 0.1). A wall that is gone therefore fades only after the robot has
 looked through it several times more often than it saw it.
 
+With `slam:=True`, slam_toolbox publishes `slam_map` and `map_eraser` republishes
+it as `map` / `map_metadata`, which Nav2, `map_autosaver` and every viewer read:
+
+| Interface | Type | Effect |
+| --------- | ---- | ------ |
+| `map_eraser/erase` | `nav2_msgs/srv/ClearCostmapAroundPose` | Cells within `reset_distance` (m, ≤ `max_radius`, default 5) of `pose` (frame `map`) that slam still calls occupied are published as unknown. The first time slam calls a cell free it is released, so a real obstacle that appears there later shows again. |
+| `map_eraser/reset` | `std_srvs/srv/Trigger` | Drops every erasure. |
+
+Erasures live in the node's memory: a restart of navigation drops them, but a map
+saved meanwhile keeps them.
+
+**Automatic clearing** (`map_eraser.auto_clear.enabled`, on in
+[`nav2_common.yaml`](./rosbot_navigation/config/nav2_common.yaml)) does the same
+without anyone pressing anything: `map_eraser` traces the live `scan_filtered`
+beams and publishes a cell slam still calls occupied as unknown once beams have
+kept crossing it (`min_free` decayed pass-throughs, time constant `decay`) and no
+beam has ended in it, or within `hit_radius_cells` of it, for `hit_hold` seconds.
+A beam's last `hit_margin` + `hit_margin_per_m` × range is not counted, and a beam
+with no return counts as free up to `range` — karto ignores those, so a wall that
+stood in front of open space never fades in slam itself. The first beam that ends
+in the cell again shows the obstacle at the next map update.
+
+In the Gazebo sim (box 1.3 m ahead, mapped over 10 drives of ~0.7 m, then
+removed): slam alone still held 24 of its 37 cells after 12 more drives; `map`
+showed none after 6 (~30 s, `hit_hold`), and the box was back in `map` at the
+first update after it reappeared. Along walls the clearing eats the 1–2 cells
+slam drew too thick, never the wall itself.
+
 `slam_executable:=lifelong_slam_toolbox_node` (experimental upstream) makes slam
 itself forget: it drops older graph nodes that newer scans overlap. With upstream's
-lifelong parameters it removed nothing in a Gazebo run (box 1.3 m ahead, mapped,
-then removed); with the ones in
-[`nav2_common.yaml`](./rosbot_navigation/config/nav2_common.yaml) the box went from
-40 cells to 15 after 8 drives of ~0.7 m (the rest came from the first two nodes,
-which lifelong never drops), and after ~100 removed nodes the walls of the explored
-area were still whole. Sync slam alone kept 24 of 37 cells after 12 drives.
+lifelong parameters it removed nothing in the sim run; with the ones in
+`nav2_common.yaml` the same box went from 40 cells to 15 after 8 drives in
+`slam_map` (the rest came from the first two nodes, which lifelong never drops),
+and after ~100 removed nodes the walls of the explored area were still whole.
+Sync slam with automatic clearing stays the default.
 
 ### Launch Arguments
 
