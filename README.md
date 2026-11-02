@@ -174,23 +174,21 @@ The highest-priority source that published within the last 0.2 s wins. Grabbing
 the gamepad overrides navigation immediately, and letting go hands control back
 — no mode switch. `twist_mux_controller/source` reports who is driving.
 
-### Erasing stale walls (SLAM)
+### Stale walls in SLAM
 
 slam_toolbox re-renders its grid from every scan it has kept, and a cell stays
 occupied while hits / pass-throughs > `occupancy_threshold` (0.2 here, karto's
 default is 0.1). A wall that is gone therefore fades only after the robot has
 looked through it several times more often than it saw it.
 
-With `slam:=True`, slam_toolbox publishes `slam_map` and `map_eraser` republishes
-it as `map` / `map_metadata`, which Nav2, `map_autosaver` and every viewer read:
-
-| Interface | Type | Effect |
-| --------- | ---- | ------ |
-| `map_eraser/erase` | `nav2_msgs/srv/ClearCostmapAroundPose` | Cells within `reset_distance` (m, ≤ `max_radius`, default 5) of `pose` (frame `map`) that slam still calls occupied are published as unknown. The first time slam calls a cell free it is released, so a real obstacle that appears there later shows again. |
-| `map_eraser/reset` | `std_srvs/srv/Trigger` | Drops every erasure. |
-
-Erasures live in the node's memory: a restart of navigation drops them, but a map
-saved meanwhile keeps them.
+`slam_executable:=lifelong_slam_toolbox_node` (experimental upstream) makes slam
+itself forget: it drops older graph nodes that newer scans overlap. With upstream's
+lifelong parameters it removed nothing in a Gazebo run (box 1.3 m ahead, mapped,
+then removed); with the ones in
+[`nav2_common.yaml`](./rosbot_navigation/config/nav2_common.yaml) the box went from
+40 cells to 15 after 8 drives of ~0.7 m (the rest came from the first two nodes,
+which lifelong never drops), and after ~100 removed nodes the walls of the explored
+area were still whole. Sync slam alone kept 24 of 37 cells after 12 drives.
 
 ### Launch Arguments
 
@@ -208,4 +206,5 @@ saved meanwhile keeps them.
 | `params_file`    | Path to the controller-specific nav2 parameters file. <br/> ***string:*** [`nav2_<controller>.yaml`](./rosbot_navigation/config/) |
 | `robot_model`    | Specify robot model. <br/> ***string:*** `env(ROBOT_MODEL)` (choices: `rosbot`, `rosbot_xl`)          |
 | `slam`           | Whether run a SLAM. <br/> ***bool:*** `True`                                                          |
+| `slam_executable` | slam_toolbox node for `slam:=True`: `sync_slam_toolbox_node` or `lifelong_slam_toolbox_node`. <br/> ***string:*** `sync_slam_toolbox_node` |
 | `use_sim_time`   | Use simulation (Gazebo) clock if true. <br/> ***bool:*** `False`                                      |
